@@ -1,5 +1,0 @@
-"0","# Check if tables exist"
-"0","calendar_exist <- dbExistsTable(abnb_db, 'Calendar')"
-"0","listings_exist <- dbExistsTable(abnb_db, 'Listings')"
-"0","reviews_exist <- dbExistsTable(abnb_db, 'Reviews')"
-"0","map_data_exist <- dbExistsTable(abnb_db, 'Map_DataScrape')"

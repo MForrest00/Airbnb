@@ -1,9 +1,3 @@
----
-output:
-  html_document:
-    self_contained: no
-    keep_md: true
----
 
 ## Airbnb Analysis
 
@@ -17,14 +11,16 @@ Data files were downloaded from the [Inside Airbnb](http://insideairbnb.com/) we
 
 This code uses the directory structure of the data folder to construct the metadata for the scraped data. It is therefore imperative that the directory structure is properly set-up. The listings, calendar, and reviews files must retain their original file names.
 
-For this first step in the data processing, the data is placed into a local SQLite database. The remaining analysis can either be performed on this SQLite database, or the data can be transferred to another store (e.g. a MySQL server on an AWS RDS instance). Total disk space for the gz files (408 files total) is about 7.95 GBs. Total disk space for the complete SQLite database is about 70 GBs, including the optional indices.
+For this first step in the data processing, the data is placed into a local SQLite database. The remaining analysis can either be performed on this SQLite database, or the data can be transferred to another store (e.g. a MySQL server on an AWS RDS instance). Total disk space for the gz files is about 7.95 GBs. Total disk space for the complete SQLite database is about 70 GBs, including the optional indices.
 
-```{r load_libraries_dp, results = 'hide', message = FALSE}
+
+```r
 library(RSQLite)
 library(DBI)
 ```
 
-```{r}
+
+```r
 # Directory for data folder
 data_directory <- 'C:/Airbnb'
 
@@ -34,12 +30,14 @@ sqlite_directory <- 'C:/SQLite/Databases/Airbnb.sqlite3'
 
 Connect to or create the SQLite database and build the tables if they do not exist
 
-```{r}
+
+```r
 # Connect to or create SQLite database
 abnb_db <- dbConnect(SQLite(), sqlite_directory)
 ```
 
-```{r, results = 'hide'}
+
+```r
 # Create tables if they do not exist
 calendar_create <- 'CREATE TABLE IF NOT EXISTS Calendar (
                         Calendar_ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL UNIQUE,
@@ -181,7 +179,8 @@ dbExecute(abnb_db, map_data_create)
 
 Add unique index to mapping table, to prevent duplication of scrapes in event of multiple runs
 
-```{r, results = 'hide'}
+
+```r
 idx_datascrape_unique <- 'CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_scrape ON Map_DataScrape (
                               Country
                               ,State
@@ -194,7 +193,8 @@ dbExecute(abnb_db, idx_datascrape_unique)
 
 Investigate directory structure of data folder, and create scrape metadata from folder names
 
-```{r, comment = ''}
+
+```r
 dir_vec <- list.files(data_directory, recursive = TRUE)
 dir_df <- t(data.frame(strsplit(dir_vec, split = '/'), stringsAsFactors = FALSE))
 dir_df <- unique(dir_df[, 1:4])
@@ -203,14 +203,22 @@ rownames(dir_df) <- seq.int(1, nrow(dir_df))
 head(dir_df, 10)
 ```
 
-```{r}
+```
+  Country         State        City        DataScrapeDate
+1 "United States" "California" "San Diego" "2015-06-22"  
+2 "United States" "California" "San Diego" "2016-07-07"  
+```
+
+
+```r
 # Find max data scrape mapping ID already in the SQLite database
 max_scrape <- dbExecute(abnb_db, 'SELECT MAX(DataScrape_ID) FROM Map_DataScrape;')
 ```
 
 Define column name data frame for listings table (listings files differ from one city and scrape to another -- this step and several steps within the read code for the listings data must be completed in order to maintain consistency across different data files)
 
-```{r}
+
+```r
 # Possible column names for listings data from gz source files
 listings_ds_colnames <- c('Listings_ID', 'DataScrape_ID', 'id', 'listing_url', 'scrape_id', 'last_searched',
                           'last_scraped', 'name', 'summary', 'space', 'description', 'experiences_offered',
@@ -269,7 +277,8 @@ listings_df_colnames <- data.frame(listings_ds_colnames, listings_db_colnames)
 
 Loop through all directories (as defined in dir_df matrix), read all gz files, and populated data into the SQLite database
 
-```{r calendar, results = 'hide', eval = TRUE}
+
+```r
 # Read calendar data and populate into SQLite database
 loop <- 1 + max_scrape
 while (loop <= (max_scrape + nrow(dir_df))) {
@@ -309,7 +318,8 @@ if (exists('calendar_temp')) {rm(calendar_temp)}
 if (exists('calendar')) {rm(calendar)}
 ```
 
-```{r listings, results = 'hide', eval = TRUE}
+
+```r
 # Read listings data and populate into SQLite database
 loop <- 1 + max_scrape
 while (loop <= (max_scrape + nrow(dir_df))) {
@@ -381,7 +391,8 @@ if (exists('listings_temp')) {rm(listings_temp)}
 if (exists('listings')) {rm(listings)}
 ```
 
-```{r reviews, results = 'hide', eval = TRUE}
+
+```r
 # Read reviews data and populate into SQLite database
 loop <- 1 + max_scrape
 while (loop <= (max_scrape + nrow(dir_df))) {
@@ -412,7 +423,8 @@ while (loop <= (max_scrape + nrow(dir_df))) {
 if (exists('reviews')) {rm(reviews)}
 ```
 
-```{r scrape, results = 'hide', eval = TRUE}
+
+```r
 # Create data scrape mapping table
 scrape_seq <- seq(1 + max_scrape, (max_scrape + nrow(dir_df)))
 data_scrape <- cbind.data.frame(scrape_seq, dir_df)
@@ -424,7 +436,8 @@ dbWriteTable(abnb_db, name = 'Map_DataScrape', value = data_scrape, append = TRU
 
 **Optional:** Create database indices for faster querying
 
-```{r index, results = 'hide', eval = TRUE}
+
+```r
 # Data scrape ID indices
 idx_datascrape_id <- 'CREATE INDEX IF NOT EXISTS idx_DataScrape_ID ON Map_DataScrape (
                           DataScrape_ID
@@ -467,7 +480,8 @@ dbExecute(abnb_db, idx_listing_id_rvw)
 
 Disconnect from the SQLite database
 
-```{r, results = 'hide'}
+
+```r
 # Disconnect from SQLite database
 dbDisconnect(abnb_db)
 ```
