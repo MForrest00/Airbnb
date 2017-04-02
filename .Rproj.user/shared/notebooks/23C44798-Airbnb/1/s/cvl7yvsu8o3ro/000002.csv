@@ -1,0 +1,2 @@
+"0","# Connect to or create SQLite database"
+"0","abnb_db <- dbConnect(SQLite(), sqlite_directory)"

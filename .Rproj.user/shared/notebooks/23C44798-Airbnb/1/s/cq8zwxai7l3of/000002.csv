@@ -1,0 +1,4 @@
+"0","if (exists(calendar_temp)) {rm(calendar_temp)}
+"
+"2","Error in exists(calendar_temp) : object 'calendar_temp' not found
+"
