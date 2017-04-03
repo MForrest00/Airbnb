@@ -1,4 +1,0 @@
-"0","# Directory for data folder"
-"0","data_directory <- 'C:/Airbnb'"
-"0","# Directory and file for SQLite database"
-"0","sqlite_directory <- 'C:/SQLite/Databases/Airbnb.sqlite3'"

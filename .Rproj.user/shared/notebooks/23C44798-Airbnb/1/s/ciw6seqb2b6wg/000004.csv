@@ -1,2 +1,0 @@
-"0","# Find max data scrape mapping ID already in the SQLite database"
-"0","max_scrape <- dbExecute(abnb_db, 'SELECT MAX(DataScrape_ID) FROM Map_DataScrape;')"

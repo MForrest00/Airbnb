@@ -124,12 +124,12 @@ $(document).ready(function () {
 <div id="summary" class="section level3">
 <h3>Summary</h3>
 </div>
-<div id="data-processing" class="section level3">
-<h3>Data Processing</h3>
+<div id="data-processing-overview-and-sqlite-data-transfer" class="section level3">
+<h3>Data Processing (Overview and SQLite Data Transfer)</h3>
 <p>All data used in this analysis was downloaded from the <a href="http://insideairbnb.com/">Inside Airbnb</a> website. Data files are available in the <a href="http://insideairbnb.com/get-the-data.html">‘Get the Data’</a> section of the website. This analysis uses the listings (‘listings.csv.gz’), calendar (‘calendar.csv.gz’), and reviews (‘reviews.csv.gz’) files.</p>
 <p>Data files were downloaded from the <a href="http://insideairbnb.com/">Inside Airbnb</a> website and placed in a local directory, with a child-folder structure of [Country]/[State]/[City]/[Data Scrape Date (‘YYYY-MM-DD’)]/[GZ File]. The directory structure used the city, state, and country names from the headers of each scraped city on the <a href="http://insideairbnb.com/get-the-data.html">‘Get the Data’</a> page of the <a href="http://insideairbnb.com/">Inside Airbnb</a> website. All files for all scrapes of all cities were downloaded as of April 2, 2017, barring the December 2, 2015 scrape of New York City (this scrape contained a broken link for the calendar file). This data encompassed 136 data scrapes for 43 distinct cities. Older scrapes for each city can be removed to cut down on the data size substantially.</p>
 <p>This code uses the directory structure of the data folder to construct the metadata for the scraped data. It is therefore imperative that the directory structure is properly set-up. The listings, calendar, and reviews files must retain their original file names.</p>
-<p>For this first step in the data processing, the data is placed into a local SQLite database. The remaining analysis can either be performed on this SQLite database, or the data can be transferred to another store (e.g. a MySQL server on an AWS RDS instance). Total disk space for the gz files is about 7.95 GBs. Total disk space for the complete SQLite database is about 70 GBs, including the optional indices.</p>
+<p>For this first step in the data processing, the data is placed into a local SQLite database. The remaining analysis can either be performed on this SQLite database, or the data can be transferred to another store (e.g. a MySQL server on an AWS RDS instance). Total disk space for the gz files (408 files total) is about 7.95 GBs. Total disk space for the complete SQLite database is about 70 GBs, including the optional indices.</p>
 <pre class="r"><code>library(RSQLite)
 library(DBI)</code></pre>
 <pre class="r"><code># Directory for data folder
@@ -537,6 +537,22 @@ dbExecute(abnb_db, idx_listing_id_rvw)</code></pre>
 <p>Disconnect from the SQLite database</p>
 <pre class="r"><code># Disconnect from SQLite database
 dbDisconnect(abnb_db)</code></pre>
+</div>
+<div id="data-processing-aws-mysql-rds-instance-data-transfer" class="section level3">
+<h3>Data Processing (AWS MySQL RDS Instance Data Transfer)</h3>
+<p>Although merging all bz files into a SQLite database with the proper metadata enables significantly streamlined analysis, this approach towards data management carries significant downsides. The data takes up a large amount of space and is stored twice on disk (once in the assortment of gz files and once in the SQLite database). The analysis is limited by the processing power and memory of the user’s computer. Finally, the SQLite database is serverless and therefore must be transferred to another user’s computer in order to facilitate data sharing.</p>
+<p>Transferring the data to a RDBMS solves these problems. Below, the data from the SQLite database will be moved to a MySQL server on an AWS RDS instance owned by the analysis author. There is no need for the SQLite database to server as an intermediary, however. In this analysis, the data will be moved out of the SQLite database and into the MySQL server simply to reduce duplication of code. Below are documented the steps required to alter the code in the ‘Data Processing’ sections of this analysis to move the data straight from the bz files into the MySQL server.</p>
+<ol style="list-style-type: decimal">
+<li>Replace all table and index creation statements with the equivalent MySQL statements documented below.</li>
+<li>Replace the statement used to create the max_scrape variable with the equivalent MySQL statement documented below.</li>
+<li>Perform the following modification to the read and populate blocks for the calendar, listings, reviews, and data scrape code blocks:
+<ul>
+<li>Remove all calls to dbWriteTable.</li>
+<li>In place of the dbWriteTable calls, write the final dataframes to a text file. Make sure to replace all new line, carriage return, and tab characters in fields where these can occur (see statements below to identify these).</li>
+<li>Execute LOAD DATA LOCAL INFILE statements on the MySQL server using these files (see statements below to see examples).</li>
+<li>Additional work may need to be done to handle differences in how MySQL handles NULL fields (concerning how R writes NA values and how MySQL reads the resulting data, and how MySQL handles NULL values for auto-increment NOT NULL columns).</li>
+</ul></li>
+</ol>
 </div>
 <div id="analysis" class="section level3">
 <h3>Analysis</h3>
