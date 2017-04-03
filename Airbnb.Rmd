@@ -13,7 +13,7 @@ output:
 
 Investigate directory structure of data folder, and create scrape metadata from folder names
 
-```{r}
+```{r data_dir}
 # Directory for data folder
 data_directory <- 'C:/Airbnb'
 
@@ -38,19 +38,19 @@ library(RSQLite)
 library(DBI)
 ```
 
-```{r}
+```{r sqlite_directory}
 # Directory and file for SQLite database
 sqlite_directory <- 'C:/SQLite/Databases/Airbnb.sqlite3'
 ```
 
 Connect to or create the SQLite database and build the tables if they do not exist
 
-```{r}
+```{r sqlite_connect}
 # Connect to or create SQLite database
 abnb_db <- dbConnect(SQLite(), sqlite_directory)
 ```
 
-```{r, results = 'hide'}
+```{r sqlite_tables, results = 'hide'}
 # Create tables if they do not exist
 calendar_create <- 'CREATE TABLE IF NOT EXISTS Calendar (
                         Calendar_ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL UNIQUE,
@@ -192,7 +192,7 @@ dbExecute(abnb_db, map_data_create)
 
 Add unique index to mapping table, to prevent duplication of scrapes in event of multiple runs
 
-```{r, results = 'hide'}
+```{r sqlite_unique_index, results = 'hide'}
 idx_datascrape_unique <- 'CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_scrape ON Map_DataScrape (
                               Country
                               ,State
@@ -205,19 +205,19 @@ dbExecute(abnb_db, idx_datascrape_unique)
 
 Investigate the data scrape metadata
 
-```{r, comment = ''}
+```{r metadata, comment = ''}
 # Return top 10 rows of data scrape metadata
 head(dir_df, 20)
 ```
 
-```{r}
+```{r max_sqlite}
 # Find max data scrape mapping ID already in the SQLite database
 max_scrape <- dbExecute(abnb_db, 'SELECT MAX(DataScrape_ID) FROM Map_DataScrape;')
 ```
 
 Define column name data frame for listings table (listings files differ from one city and scrape to another -- this step and several steps within the read code for the listings data must be completed in order to maintain consistency across different data files)
 
-```{r}
+```{r listings_colnames}
 # Possible column names for listings data from gz source files
 listings_ds_colnames <- c('Listings_ID', 'DataScrape_ID', 'id', 'listing_url', 'scrape_id', 'last_searched',
                           'last_scraped', 'name', 'summary', 'space', 'description', 'experiences_offered',
@@ -431,7 +431,7 @@ dbWriteTable(abnb_db, name = 'Map_DataScrape', value = data_scrape, append = TRU
 
 **Optional:** Create database indices for faster querying
 
-```{r index, results = 'hide', eval = TRUE}
+```{r sqlite_indices, results = 'hide', eval = TRUE}
 # Data scrape ID indices
 idx_datascrape_id <- 'CREATE INDEX IF NOT EXISTS idx_DataScrape_ID ON Map_DataScrape (
                           DataScrape_ID
@@ -474,7 +474,7 @@ dbExecute(abnb_db, idx_listing_id_rvw)
 
 Disconnect from the SQLite database
 
-```{r, results = 'hide'}
+```{r sqlite_disconnect, results = 'hide'}
 # Disconnect from SQLite database
 dbDisconnect(abnb_db)
 ```
@@ -499,6 +499,171 @@ library(RMySQL)
 library(DBI)
 ```
 
+Connect to the SQLite and MySQL databases
 
+```{r db_connections}
+# Directory and file for SQLite database
+sqlite_directory <- 'C:/SQLite/Databases/Airbnb.sqlite3'
+
+# Connect to SQLite database
+abnb_db_slt <- dbConnect(SQLite(), sqlite_directory)
+
+# Load MySQL server address and log-in credentials (replace with your server address and log-in credentials)
+mysql_server_address <- readLines('C:/Credentials/AWS MySQL Airbnb Database/serverAddress.txt')
+mysql_user_name <- readLines('C:/Credentials/AWS MySQL Airbnb Database/userName.txt')
+mysql_password <- readLines('C:/Credentials/AWS MySQL Airbnb Database/password.txt')
+
+# Connect to MySQL database -- this instance has been launched with a database named 'airbnb'
+abnb_db_mys <- dbConnect(MySQL(), dbname = 'airbnb', username = mysql_user_name, password = mysql_password,
+                         host = mysql_server_address)
+```
+
+Create the MySQL tables if they do not exist
+
+```{r mysql_tables, results = 'hide'}
+# Create tables if they do not exist
+calendar_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Calendar (
+                        Calendar_ID INT NOT NULL AUTO_INCREMENT,
+                        DataScrape_ID INT NOT NULL,
+                        ListingID INT NOT NULL,
+                        Date DATE NOT NULL,
+                        Available VARCHAR(1) NOT NULL,
+                        Price DECIMAL(7, 2) NOT NULL,
+                        PRIMARY KEY (Calendar_ID),
+                        UNIQUE INDEX Calendar_ID_UNIQUE (Calendar_ID ASC)
+                    );
+                    '
+dbExecute(abnb_db_mys, calendar_create)
+listings_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Listings (
+                        Listings_ID INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL,
+                        DataScrape_ID INTEGER NOT NULL,
+                        ID INTEGER NOT NULL,
+                        ListingURL VARCHAR,
+                        ScrapeID INTEGER,
+                        LastSearched DATE,
+                        LastScraped DATE,
+                        Name TEXT,
+                        Summary TEXT,
+                        Space TEXT,
+                        Description TEXT,
+                        ExperiencesOffered TEXT,
+                        NeighborhoodOverview TEXT,
+                        Notes TEXT,
+                        Transit TEXT,
+                        Access TEXT,
+                        Interaction TEXT,
+                        HouseRules TEXT,
+                        ThumbnailURL VARCHAR,
+                        MediumURL VARCHAR,
+                        PictureURL VARCHAR,
+                        XLPictureURL VARCHAR,
+                        HostID INTEGER,
+                        HostURL VARCHAR,
+                        HostName VARCHAR,
+                        HostSince DATE,
+                        HostLocation VARCHAR,
+                        HostAbout TEXT,
+                        HostResponseTime VARCHAR,
+                        HostResponseRate REAL,
+                        HostAcceptanceRate REAL,
+                        HostIsSuperhost VARCHAR,
+                        HostThumbnailURL VARCHAR,
+                        HostPictureURL VARCHAR,
+                        HostNeighborhood VARCHAR,
+                        HostListingsCount INTEGER,
+                        HostTotalListingsCount INTEGER,
+                        HostVerifications VARCHAR,
+                        HostHasProfilePic VARCHAR,
+                        HostIdentityVerified VARCHAR,
+                        Street VARCHAR,
+                        Neighborhood VARCHAR,
+                        NeighborhoodCleansed VARCHAR,
+                        NeighborhoodGroupCleansed VARCHAR,
+                        City VARCHAR,
+                        State VARCHAR,
+                        ZipCode VARCHAR,
+                        Market VARCHAR,
+                        SmartLocation VARCHAR,
+                        CountryCode VARCHAR,
+                        Country VARCHAR,
+                        Latitude VARCHAR,
+                        Longitude VARCHAR,
+                        IsLocationExact VARCHAR,
+                        PropertyType VARCHAR,
+                        RoomType VARCHAR,
+                        Accommodates INTEGER,
+                        Bathrooms INTEGER,
+                        Bedrooms INTEGER,
+                        Beds INTEGER,
+                        BedType VARCHAR,
+                        Amenities VARCHAR,
+                        SquareFeet REAL,
+                        Price REAL,
+                        WeeklyPrice REAL,
+                        MonthlyPrice REAL,
+                        SecurityDeposit REAL,
+                        CleaningFee REAL,
+                        GuestsIncluded INTEGER,
+                        ExtraPeople REAL,
+                        MinimumNights INTEGER,
+                        MaximumNights INTEGER,
+                        CalendarUpdated VARCHAR,
+                        HasAvailability VARCHAR,
+                        Availability30 INTEGER,
+                        Availability60 INTEGER,
+                        Availability90 INTEGER,
+                        Availability365 INTEGER,
+                        CalendarLastScraped DATE,
+                        NumberOfReviews INTEGER,
+                        FirstReview DATE,
+                        LastReview DATE,
+                        ReviewScoresRating INTEGER,
+                        ReviewScoresAccuracy INTEGER,
+                        ReviewScoresCleanliness INTEGER,
+                        ReviewScoresCheckIn INTEGER,
+                        ReviewScoresCommunication INTEGER,
+                        ReviewScoresLocation INTEGER,
+                        ReviewScoresValue INTEGER,
+                        RequiresLicense VARCHAR,
+                        License VARCHAR,
+                        JurisdictionNames VARCHAR,
+                        InstantBookable VARCHAR,
+                        CancellationPolicy VARCHAR,
+                        RequireGuestProfilePicture VARCHAR,
+                        RequireGuestPhoneVerification VARCHAR,
+                        RegionID INTEGER,
+                        RegionName VARCHAR,
+                        RegionParentID INTEGER,
+                        CalculatedHostListingsCount INTEGER,
+                        ReviewsPerMonth REAL
+                    );
+                    '
+dbExecute(abnb_db_mys, listings_create)
+reviews_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Reviews (
+                       Reviews_ID INT NOT NULL AUTO_INCREMENT,
+                       DataScrape_ID INT NOT NULL,
+                       ListingID INT NOT NULL,
+                       ID INT NOT NULL,
+                       Date DATE NOT NULL,
+                       ReviewerID INT NOT NULL,
+                       ReviewerName VARCHAR(300) NOT NULL,
+                       Comments VARCHAR(6000) NOT NULL,
+                       PRIMARY KEY (Reviews_ID),
+                       UNIQUE INDEX Reviews_ID_UNIQUE (Reviews_ID ASC)
+                   );
+                   '
+dbExecute(abnb_db_mys, reviews_create)
+map_data_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Map_DataScrape (
+                        DataScrape_ID INT NOT NULL AUTO_INCREMENT,
+                        Country VARCHAR(25) NOT NULL,
+                        State VARCHAR(35) NOT NULL,
+                        City(25) VARCHAR NOT NULL,
+                        DataScrapeDate DATE NOT NULL,
+                        PRIMARY KEY (DataScrape_ID),
+                        UNIQUE INDEX DataScrape_ID_UNIQUE (DataScrape_ID ASC)
+                    );
+                    '
+dbExecute(abnb_db_mys, map_data_create)
+```
 
 ### Analysis
