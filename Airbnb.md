@@ -5,13 +5,28 @@
 
 ### Data Processing (Overview and SQLite Data Transfer)
 
+Investigate directory structure of data folder, and create scrape metadata from folder names
+
+
+```r
+# Directory for data folder
+data_directory <- 'C:/Airbnb'
+
+# Create data frame for data scrape metadata from folders in the data directory
+dir_vec <- list.files(data_directory, recursive = TRUE)
+dir_df <- t(data.frame(strsplit(dir_vec, split = '/'), stringsAsFactors = FALSE))
+dir_df <- unique(dir_df[, 1:4])
+colnames(dir_df) <- c('Country', 'State', 'City', 'DataScrapeDate')
+rownames(dir_df) <- seq.int(1, nrow(dir_df))
+```
+
 All data used in this analysis was downloaded from the [Inside Airbnb](http://insideairbnb.com/) website. Data files are available in the ['Get the Data'](http://insideairbnb.com/get-the-data.html) section of the website. This analysis uses the listings ('listings.csv.gz'), calendar ('calendar.csv.gz'), and reviews ('reviews.csv.gz') files.
 
-Data files were downloaded from the [Inside Airbnb](http://insideairbnb.com/) website and placed in a local directory, with a child-folder structure of [Country]/[State]/[City]/[Data Scrape Date ('YYYY-MM-DD')]/[GZ File]. The directory structure used the city, state, and country names from the headers of each scraped city on the ['Get the Data'](http://insideairbnb.com/get-the-data.html) page of the [Inside Airbnb](http://insideairbnb.com/) website. All files for all scrapes of all cities were downloaded as of April 2, 2017, barring the December 2, 2015 scrape of New York City (this scrape contained a broken link for the calendar file). This data encompassed 136 data scrapes for 43 distinct cities. Older scrapes for each city can be removed to cut down on the data size substantially.
+Data files were downloaded from the [Inside Airbnb](http://insideairbnb.com/) website and placed in a local directory, with a child-folder structure of [Country]/[State]/[City]/[Data Scrape Date ('YYYY-MM-DD')]/[GZ File]. The directory structure used the city, state, and country names from the headers of each scraped city on the ['Get the Data'](http://insideairbnb.com/get-the-data.html) page of the [Inside Airbnb](http://insideairbnb.com/) website. All files for all scrapes of all cities were downloaded as of March 15, 2017, barring the December 2, 2015 scrape of New York City (this scrape contained a broken link for the calendar file). This data encompassed 136 data scrapes for 43 distinct cities. Older scrapes for each city can be removed to cut down on the data size substantially.
 
 This code uses the directory structure of the data folder to construct the metadata for the scraped data. It is therefore imperative that the directory structure is properly set-up. The listings, calendar, and reviews files must retain their original file names.
 
-For this first step in the data processing, the data is placed into a local SQLite database. The remaining analysis can either be performed on this SQLite database, or the data can be transferred to another store (e.g. a MySQL server on an AWS RDS instance). Total disk space for the gz files (408 files total) is about 7.95 GBs. Total disk space for the complete SQLite database is about 70 GBs, including the optional indices.
+For this first step in the data processing, the data is placed into a local SQLite database. The remaining analysis can either be performed on this SQLite database, or the data can be transferred to another store (e.g. a MySQL server on an AWS RDS instance). Total disk space for the gz files (408 files total) is about 6.95 GBs. Total disk space for the complete SQLite database should end up around 64.65 GBs, including the optional indices.
 
 
 ```r
@@ -21,9 +36,6 @@ library(DBI)
 
 
 ```r
-# Directory for data folder
-data_directory <- 'C:/Airbnb'
-
 # Directory and file for SQLite database
 sqlite_directory <- 'C:/SQLite/Databases/Airbnb.sqlite3'
 ```
@@ -191,22 +203,36 @@ idx_datascrape_unique <- 'CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_scrape ON
 dbExecute(abnb_db, idx_datascrape_unique)
 ```
 
-Investigate directory structure of data folder, and create scrape metadata from folder names
+Investigate the data scrape metadata
 
 
 ```r
-dir_vec <- list.files(data_directory, recursive = TRUE)
-dir_df <- t(data.frame(strsplit(dir_vec, split = '/'), stringsAsFactors = FALSE))
-dir_df <- unique(dir_df[, 1:4])
-colnames(dir_df) <- c('Country', 'State', 'City', 'DataScrapeDate')
-rownames(dir_df) <- seq.int(1, nrow(dir_df))
-head(dir_df, 10)
+# Return top 10 rows of data scrape metadata
+head(dir_df, 20)
 ```
 
 ```
-  Country         State        City        DataScrapeDate
-1 "United States" "California" "San Diego" "2015-06-22"  
-2 "United States" "California" "San Diego" "2016-07-07"  
+   Country     State              City              DataScrapeDate
+1  "Australia" "New South Wales"  "Northern Rivers" "2016-04-02"  
+2  "Australia" "New South Wales"  "Sydney"          "2015-05-10"  
+3  "Australia" "New South Wales"  "Sydney"          "2015-09-03"  
+4  "Australia" "New South Wales"  "Sydney"          "2015-10-02"  
+5  "Australia" "New South Wales"  "Sydney"          "2015-12-03"  
+6  "Australia" "New South Wales"  "Sydney"          "2016-01-03"  
+7  "Australia" "New South Wales"  "Sydney"          "2016-12-04"  
+8  "Australia" "New South Wales"  "Sydney"          "2017-03-03"  
+9  "Australia" "Victoria"         "Melbourne"       "2015-07-18"  
+10 "Australia" "Victoria"         "Melbourne"       "2015-09-03"  
+11 "Australia" "Victoria"         "Melbourne"       "2015-10-02"  
+12 "Australia" "Victoria"         "Melbourne"       "2015-12-03"  
+13 "Australia" "Victoria"         "Melbourne"       "2016-01-03"  
+14 "Australia" "Victoria"         "Melbourne"       "2016-09-04"  
+15 "Australia" "Victoria"         "Melbourne"       "2016-12-05"  
+16 "Austria"   "Vienna"           "Vienna"          "2015-07-18"  
+17 "Belgium"   "Brussels"         "Brussels"        "2015-10-03"  
+18 "Belgium"   "Flemish Region"   "Antwerp"         "2015-10-03"  
+19 "Canada"    "British Columbia" "Vancouver"       "2015-11-07"  
+20 "Canada"    "British Columbia" "Vancouver"       "2015-12-03"  
 ```
 
 
@@ -490,14 +516,206 @@ dbDisconnect(abnb_db)
 
 Although merging all bz files into a SQLite database with the proper metadata enables significantly streamlined analysis, this approach towards data management carries significant downsides. The data takes up a large amount of space and is stored twice on disk (once in the assortment of gz files and once in the SQLite database). The analysis is limited by the processing power and memory of the user's computer. Finally, the SQLite database is serverless and therefore must be transferred to another user's computer in order to facilitate data sharing.
 
-Transferring the data to a RDBMS solves these problems. Below, the data from the SQLite database will be moved to a MySQL server on an AWS RDS instance owned by the analysis author. There is no need for the SQLite database to server as an intermediary, however. In this analysis, the data will be moved out of the SQLite database and into the MySQL server simply to reduce duplication of code. Below are documented the steps required to alter the code in the 'Data Processing' sections of this analysis to move the data straight from the bz files into the MySQL server.
+Transferring the data to a server-based RDBMS solves these problems. Below, the data from the SQLite database will be moved to a MySQL server on an AWS RDS instance owned by the analysis author. There is no need for the SQLite database to server as an intermediary, however. In this analysis, the data will be moved out of the SQLite database and into the MySQL server simply to reduce duplication of code. Below are documented the steps required to alter the code in the 'Data Processing' sections of this analysis to move the data straight from the bz files into the MySQL server.
 
 1. Replace all table and index creation statements with the equivalent MySQL statements documented below.
 2. Replace the statement used to create the max_scrape variable with the equivalent MySQL statement documented below.
 3. Perform the following modification to the read and populate blocks for the calendar, listings, reviews, and data scrape code blocks:
     + Remove all calls to dbWriteTable.
-    + In place of the dbWriteTable calls, write the final dataframes to a text file. Make sure to replace all new line, carriage return, and tab characters in fields where these can occur (see statements below to identify these).
-    + Execute LOAD DATA LOCAL INFILE statements on the MySQL server using these files (see statements below to see examples).
-    + Additional work may need to be done to handle differences in how MySQL handles NULL fields (concerning how R writes NA values and how MySQL reads the resulting data, and how MySQL handles NULL values for auto-increment NOT NULL columns).
+    + In place of the dbWriteTable calls, write the final dataframes to a text file. Make sure to replace all new line, carriage return, and tab characters in fields where these can occur (see statements below to identify the applicable fields).
+    + Execute LOAD DATA LOCAL INFILE statements on the MySQL server using these files (see statements below to for examples).
+    + Additional work may need to be done to handle differences in how MySQL handles NULL fields (concerning how R writes NA values to text files and how MySQL reads the resulting data, and how MySQL handles NULL values for auto-increment NOT NULL columns).
+
+
+```r
+library(RSQLite)
+library(RMySQL)
+```
+
+```
+## Warning: package 'RMySQL' was built under R version 3.3.3
+```
+
+```r
+library(DBI)
+```
+
+Connect to the SQLite and MySQL databases
+
+
+```r
+# Directory and file for SQLite database
+sqlite_directory <- 'C:/SQLite/Databases/Airbnb.sqlite3'
+
+# Connect to SQLite database
+abnb_db_slt <- dbConnect(SQLite(), sqlite_directory)
+
+# Load MySQL server address and log-in credentials (replace with your server address and log-in credentials)
+mysql_server_address <- readLines('C:/Credentials/AWS MySQL Airbnb Database/serverAddress.txt')
+mysql_user_name <- readLines('C:/Credentials/AWS MySQL Airbnb Database/userName.txt')
+mysql_password <- readLines('C:/Credentials/AWS MySQL Airbnb Database/password.txt')
+
+# Connect to MySQL database -- this instance has been launched with a database named 'airbnb'
+abnb_db_mys <- dbConnect(MySQL(), dbname = 'airbnb', username = mysql_user_name, password = mysql_password,
+                         host = mysql_server_address)
+```
+
+Create the MySQL tables if they do not exist
+
+
+```r
+# Create tables if they do not exist
+calendar_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Calendar (
+                        Calendar_ID INT NOT NULL AUTO_INCREMENT,
+                        DataScrape_ID INT NOT NULL,
+                        ListingID INT NOT NULL,
+                        Date DATE NOT NULL,
+                        Available VARCHAR(1) NOT NULL,
+                        Price DECIMAL(7, 2) NOT NULL,
+                        PRIMARY KEY (Calendar_ID),
+                        UNIQUE INDEX Calendar_ID_UNIQUE (Calendar_ID ASC)
+                    );
+                    '
+dbExecute(abnb_db_mys, calendar_create)
+listings_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Listings (
+                        Listings_ID INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL,
+                        DataScrape_ID INTEGER NOT NULL,
+                        ID INTEGER NOT NULL,
+                        ListingURL VARCHAR,
+                        ScrapeID INTEGER,
+                        LastSearched DATE,
+                        LastScraped DATE,
+                        Name TEXT,
+                        Summary TEXT,
+                        Space TEXT,
+                        Description TEXT,
+                        ExperiencesOffered TEXT,
+                        NeighborhoodOverview TEXT,
+                        Notes TEXT,
+                        Transit TEXT,
+                        Access TEXT,
+                        Interaction TEXT,
+                        HouseRules TEXT,
+                        ThumbnailURL VARCHAR,
+                        MediumURL VARCHAR,
+                        PictureURL VARCHAR,
+                        XLPictureURL VARCHAR,
+                        HostID INTEGER,
+                        HostURL VARCHAR,
+                        HostName VARCHAR,
+                        HostSince DATE,
+                        HostLocation VARCHAR,
+                        HostAbout TEXT,
+                        HostResponseTime VARCHAR,
+                        HostResponseRate REAL,
+                        HostAcceptanceRate REAL,
+                        HostIsSuperhost VARCHAR,
+                        HostThumbnailURL VARCHAR,
+                        HostPictureURL VARCHAR,
+                        HostNeighborhood VARCHAR,
+                        HostListingsCount INTEGER,
+                        HostTotalListingsCount INTEGER,
+                        HostVerifications VARCHAR,
+                        HostHasProfilePic VARCHAR,
+                        HostIdentityVerified VARCHAR,
+                        Street VARCHAR,
+                        Neighborhood VARCHAR,
+                        NeighborhoodCleansed VARCHAR,
+                        NeighborhoodGroupCleansed VARCHAR,
+                        City VARCHAR,
+                        State VARCHAR,
+                        ZipCode VARCHAR,
+                        Market VARCHAR,
+                        SmartLocation VARCHAR,
+                        CountryCode VARCHAR,
+                        Country VARCHAR,
+                        Latitude VARCHAR,
+                        Longitude VARCHAR,
+                        IsLocationExact VARCHAR,
+                        PropertyType VARCHAR,
+                        RoomType VARCHAR,
+                        Accommodates INTEGER,
+                        Bathrooms INTEGER,
+                        Bedrooms INTEGER,
+                        Beds INTEGER,
+                        BedType VARCHAR,
+                        Amenities VARCHAR,
+                        SquareFeet REAL,
+                        Price REAL,
+                        WeeklyPrice REAL,
+                        MonthlyPrice REAL,
+                        SecurityDeposit REAL,
+                        CleaningFee REAL,
+                        GuestsIncluded INTEGER,
+                        ExtraPeople REAL,
+                        MinimumNights INTEGER,
+                        MaximumNights INTEGER,
+                        CalendarUpdated VARCHAR,
+                        HasAvailability VARCHAR,
+                        Availability30 INTEGER,
+                        Availability60 INTEGER,
+                        Availability90 INTEGER,
+                        Availability365 INTEGER,
+                        CalendarLastScraped DATE,
+                        NumberOfReviews INTEGER,
+                        FirstReview DATE,
+                        LastReview DATE,
+                        ReviewScoresRating INTEGER,
+                        ReviewScoresAccuracy INTEGER,
+                        ReviewScoresCleanliness INTEGER,
+                        ReviewScoresCheckIn INTEGER,
+                        ReviewScoresCommunication INTEGER,
+                        ReviewScoresLocation INTEGER,
+                        ReviewScoresValue INTEGER,
+                        RequiresLicense VARCHAR,
+                        License VARCHAR,
+                        JurisdictionNames VARCHAR,
+                        InstantBookable VARCHAR,
+                        CancellationPolicy VARCHAR,
+                        RequireGuestProfilePicture VARCHAR,
+                        RequireGuestPhoneVerification VARCHAR,
+                        RegionID INTEGER,
+                        RegionName VARCHAR,
+                        RegionParentID INTEGER,
+                        CalculatedHostListingsCount INTEGER,
+                        ReviewsPerMonth REAL
+                    );
+                    '
+dbExecute(abnb_db_mys, listings_create)
+reviews_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Reviews (
+                       Reviews_ID INT NOT NULL AUTO_INCREMENT,
+                       DataScrape_ID INT NOT NULL,
+                       ListingID INT NOT NULL,
+                       ID INT NOT NULL,
+                       Date DATE NOT NULL,
+                       ReviewerID INT NOT NULL,
+                       ReviewerName VARCHAR(300) NOT NULL,
+                       Comments VARCHAR(6000) NOT NULL,
+                       PRIMARY KEY (Reviews_ID),
+                       UNIQUE INDEX Reviews_ID_UNIQUE (Reviews_ID ASC)
+                   );
+                   '
+dbExecute(abnb_db_mys, reviews_create)
+map_data_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Map_DataScrape (
+                        DataScrape_ID INT NOT NULL AUTO_INCREMENT,
+                        Country VARCHAR(25) NOT NULL,
+                        State VARCHAR(35) NOT NULL,
+                        City(25) VARCHAR NOT NULL,
+                        DataScrapeDate DATE NOT NULL,
+                        PRIMARY KEY (DataScrape_ID),
+                        UNIQUE INDEX DataScrape_ID_UNIQUE (DataScrape_ID ASC)
+                    );
+                    '
+dbExecute(abnb_db_mys, map_data_create)
+```
+
+Disconnect from the SQLite and MySQL databases
+
+
+```r
+# Disconnect from SQLite database
+dbDisconnect(abnb_db_slt)
+dbDisconnect(abnb_db_mys)
+```
 
 ### Analysis
