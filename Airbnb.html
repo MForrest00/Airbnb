@@ -294,7 +294,7 @@ dbExecute(abnb_db, map_data_create)</code></pre>
                           &#39;
 dbExecute(abnb_db, idx_datascrape_unique)</code></pre>
 <p>Investigate the data scrape metadata</p>
-<pre class="r"><code># Return top 10 rows of data scrape metadata
+<pre class="r"><code># Return top 20 rows of data scrape metadata
 head(dir_df, 20)</code></pre>
 <pre><code>   Country     State              City              DataScrapeDate
 1  &quot;Australia&quot; &quot;New South Wales&quot;  &quot;Northern Rivers&quot; &quot;2016-04-02&quot;  
@@ -377,7 +377,7 @@ listings_db_colnames &lt;- c(&#39;Listings_ID&#39;, &#39;DataScrape_ID&#39;, &#3
 
 # Combine gz file data source and SQLite column names for listings data into mapping data frame
 listings_df_colnames &lt;- data.frame(listings_ds_colnames, listings_db_colnames)</code></pre>
-<p>Loop through all directories (as defined in dir_df matrix), read all gz files, and populated data into the SQLite database</p>
+<p>Loop through all directories (as defined in dir_df matrix), read all gz files, and populate data into the SQLite database</p>
 <pre class="r"><code># Read calendar data and populate into SQLite database
 loop &lt;- 1 + max_scrape
 while (loop &lt;= (max_scrape + nrow(dir_df))) {
@@ -569,7 +569,7 @@ dbDisconnect(abnb_db)</code></pre>
 <ol style="list-style-type: decimal">
 <li>Replace all table and index creation statements with the equivalent MySQL statements documented below.</li>
 <li>Replace the statement used to create the max_scrape variable with the equivalent MySQL statement documented below.</li>
-<li>Perform the following modification to the read and populate blocks for the calendar, listings, reviews, and data scrape code blocks:
+<li>Perform the following modifications to the read and populate blocks for the calendar, listings, reviews, and data scrape code blocks:
 <ul>
 <li>Remove all calls to dbWriteTable.</li>
 <li>In place of the dbWriteTable calls, write the final dataframes to a text file. Make sure to replace all new line, carriage return, and tab characters in fields where these can occur (see statements below to identify the applicable fields).</li>
@@ -757,8 +757,8 @@ max_scrape_temp &lt;- dbSendQuery(abnb_db_mys, &#39;SELECT MAX(DataScrape_ID) FR
 max_scrape &lt;- dbFetch(max_scrape_temp)
 dbClearResult(max_scrape_temp)
 if (is.na(as.integer(max_scrape))) {max_scrape &lt;- 0} else {max_scrape &lt;- as.integer(max_scrape)}</code></pre>
-<p>The process of moving data from the SQLite database into the MySQL server will involve writing the SQLite data to a text file, and then calling a LOAD DATA LOCAL INFILE command to on the MySQL server which will read the data in the text file. The data will be transferred in batches to allow us to pick up where we left off if we only want to transfer some of the data, or if the transfer process fails.</p>
-<p>First, we must find how many rows are in each of the three large tables (Calendar, Listings, and Reviews) in the SQLite database. This will tell us how long to run our loops for the text file creation. Then we can begin writing the data from the SQLite database and reading them from the MySQL server.</p>
+<p>The process of moving data from the SQLite database into the MySQL server will involve writing the SQLite data to a text file and then calling a LOAD DATA LOCAL INFILE command on the MySQL server which will read the data in the text file. The data will be transferred in batches to allow us to pick up where we left off if we only want to transfer some of the data or if the transfer process fails in the middle of the loop.</p>
+<p>First, we must find how many rows are in each of the three large tables (Calendar, Listings, and Reviews) in the SQLite database. This will tell us how long to run our loops. Then we can begin writing the data from the SQLite database and reading them from the MySQL server.</p>
 <pre class="r"><code># Find max data scrape mapping ID already in the MySQL database
 table_rows_temp &lt;- dbSendQuery(abnb_db_slt, &#39;SELECT COUNT(*) AS RowCount FROM Calendar
                                              UNION ALL
@@ -774,7 +774,33 @@ Calendar 702590690
 Listings   1924970
 Reviews   25220866</code></pre>
 <p>Because the Calendar table is narrow, we can transfer it in batches of half a million. The wider Listings and Reviews tables will be transferred in batches of 100,000.</p>
-<pre class="r"><code>work_dir &lt;- getwd()</code></pre>
+<pre class="r"><code>work_dir_stem &lt;- getwd()</code></pre>
+<pre class="r"><code>loop &lt;- 0
+batch_size &lt;- 500000
+while (loop &lt; table_rows[1, 1]) {
+    calendar_sql &lt;- &#39;SELECT 
+    
+    loop &lt;- loop + batch_size
+}</code></pre>
+<pre class="r"><code># Query all content from data scrape mapping table in SQLite
+scrape_temp &lt;- dbSendQuery(abnb_db_slt, &#39;SELECT * FROM Map_DataScrape;&#39;)
+scrape &lt;- dbFetch(scrape_temp)
+dbClearResult(scrape_temp)
+
+# Write results to temp file
+write.table(scrape, file = &#39;scrape_transf.txt&#39;, quote = FALSE, sep = &#39;|&#39;, row.names = FALSE, col.names = FALSE)
+work_dir &lt;- paste(work_dir_stem, &#39;/scrape_transf.txt&#39;, sep = &#39;&#39;)
+
+# Read results into MySQL from temp file
+scrape_load_stem1 &lt;- &#39;LOAD DATA LOCAL INFILE \&#39;&#39;
+scrape_load_stem2 &lt;- &#39;\&#39; INTO TABLE airbnb.Map_DataScrape
+                      FIELDS TERMINATED BY \&#39;|\&#39;
+                      LINES TERMINATED BY \&#39;\n\&#39;;&#39;
+scrape_load &lt;- dbSendStatement(abnb_db_mys, paste(scrape_load_stem1, work_dir, scrape_load_stem2, sep = &#39;&#39;))
+dbClearResult(scrape_load)
+
+# Remove temp file
+if (file.exists(&#39;scrape_transf.txt&#39;)) {file.remove(&#39;scrape_transf.txt&#39;)}</code></pre>
 <p>Disconnect from the SQLite and MySQL databases</p>
 <pre class="r"><code># Disconnect from SQLite database
 dbDisconnect(abnb_db_slt)

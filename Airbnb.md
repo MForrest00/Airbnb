@@ -207,7 +207,7 @@ Investigate the data scrape metadata
 
 
 ```r
-# Return top 10 rows of data scrape metadata
+# Return top 20 rows of data scrape metadata
 head(dir_df, 20)
 ```
 
@@ -304,7 +304,7 @@ listings_db_colnames <- c('Listings_ID', 'DataScrape_ID', 'ID', 'ListingURL', 'S
 listings_df_colnames <- data.frame(listings_ds_colnames, listings_db_colnames)
 ```
 
-Loop through all directories (as defined in dir_df matrix), read all gz files, and populated data into the SQLite database
+Loop through all directories (as defined in dir_df matrix), read all gz files, and populate data into the SQLite database
 
 
 ```r
@@ -523,7 +523,7 @@ Transferring the data to a server-based RDBMS solves these problems. Below, the 
 
 1. Replace all table and index creation statements with the equivalent MySQL statements documented below.
 2. Replace the statement used to create the max_scrape variable with the equivalent MySQL statement documented below.
-3. Perform the following modification to the read and populate blocks for the calendar, listings, reviews, and data scrape code blocks:
+3. Perform the following modifications to the read and populate blocks for the calendar, listings, reviews, and data scrape code blocks:
     + Remove all calls to dbWriteTable.
     + In place of the dbWriteTable calls, write the final dataframes to a text file. Make sure to replace all new line, carriage return, and tab characters in fields where these can occur (see statements below to identify the applicable fields).
     + Execute LOAD DATA LOCAL INFILE statements on the MySQL server using these files (see statements below for examples).
@@ -732,9 +732,9 @@ dbClearResult(max_scrape_temp)
 if (is.na(as.integer(max_scrape))) {max_scrape <- 0} else {max_scrape <- as.integer(max_scrape)}
 ```
 
-The process of moving data from the SQLite database into the MySQL server will involve writing the SQLite data to a text file, and then calling a LOAD DATA LOCAL INFILE command to on the MySQL server which will read the data in the text file. The data will be transferred in batches to allow us to pick up where we left off if we only want to transfer some of the data, or if the transfer process fails.
+The process of moving data from the SQLite database into the MySQL server will involve writing the SQLite data to a text file and then calling a LOAD DATA LOCAL INFILE command on the MySQL server which will read the data in the text file. The data will be transferred in batches to allow us to pick up where we left off if we only want to transfer some of the data or if the transfer process fails in the middle of the loop.
 
-First, we must find how many rows are in each of the three large tables (Calendar, Listings, and Reviews) in the SQLite database. This will tell us how long to run our loops for the text file creation. Then we can begin writing the data from the SQLite database and reading them from the MySQL server.
+First, we must find how many rows are in each of the three large tables (Calendar, Listings, and Reviews) in the SQLite database. This will tell us how long to run our loops. Then we can begin writing the data from the SQLite database and reading them from the MySQL server.
 
 
 ```r
@@ -761,16 +761,42 @@ Because the Calendar table is narrow, we can transfer it in batches of half a mi
 
 
 ```r
-work_dir <- getwd()
+work_dir_stem <- getwd()
 ```
 
 
+```r
+loop <- 0
+batch_size <- 500000
+while (loop < table_rows[1, 1]) {
+    calendar_sql <- 'SELECT 
+    
+    loop <- loop + batch_size
+}
+```
 
 
+```r
+# Query all content from data scrape mapping table in SQLite
+scrape_temp <- dbSendQuery(abnb_db_slt, 'SELECT * FROM Map_DataScrape;')
+scrape <- dbFetch(scrape_temp)
+dbClearResult(scrape_temp)
 
+# Write results to temp file
+write.table(scrape, file = 'scrape_transf.txt', quote = FALSE, sep = '|', row.names = FALSE, col.names = FALSE)
+work_dir <- paste(work_dir_stem, '/scrape_transf.txt', sep = '')
 
+# Read results into MySQL from temp file
+scrape_load_stem1 <- 'LOAD DATA LOCAL INFILE \''
+scrape_load_stem2 <- '\' INTO TABLE airbnb.Map_DataScrape
+                      FIELDS TERMINATED BY \'|\'
+                      LINES TERMINATED BY \'\n\';'
+scrape_load <- dbSendStatement(abnb_db_mys, paste(scrape_load_stem1, work_dir, scrape_load_stem2, sep = ''))
+dbClearResult(scrape_load)
 
-
+# Remove temp file
+if (file.exists('scrape_transf.txt')) {file.remove('scrape_transf.txt')}
+```
 
 
 
