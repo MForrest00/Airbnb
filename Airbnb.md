@@ -22,11 +22,11 @@ rownames(dir_df) <- seq.int(1, nrow(dir_df))
 
 All data used in this analysis was downloaded from the [Inside Airbnb](http://insideairbnb.com/) website. Data files are available in the ['Get the Data'](http://insideairbnb.com/get-the-data.html) section of the website. This analysis uses the listings ('listings.csv.gz'), calendar ('calendar.csv.gz'), and reviews ('reviews.csv.gz') files.
 
-Data files were downloaded from the [Inside Airbnb](http://insideairbnb.com/) website and placed in a local directory, with a child-folder structure of [Country]/[State]/[City]/[Data Scrape Date ('YYYY-MM-DD')]/[GZ File]. The directory structure used the city, state, and country names from the headers of each scraped city on the ['Get the Data'](http://insideairbnb.com/get-the-data.html) page of the [Inside Airbnb](http://insideairbnb.com/) website. All files for all scrapes of all cities were downloaded as of March 15, 2017, barring the December 2, 2015 scrape of New York City (this scrape contained a broken link for the calendar file). This data encompassed 136 data scrapes for 43 distinct cities. Older scrapes for each city can be removed to cut down on the data size substantially.
+Data files were downloaded from the [Inside Airbnb](http://insideairbnb.com/) website and placed in a local directory, with a child-folder structure of [Country]/[State]/[City]/[Data Scrape Date ('YYYY-MM-DD')]/[GZ File]. The directory structure used the city, state, and country names from the headers of each scraped city on the ['Get the Data'](http://insideairbnb.com/get-the-data.html) page of the [Inside Airbnb](http://insideairbnb.com/) website. All files for all scrapes of all cities were downloaded as of March 15, 2017, barring the December 02, 2015 scrape of New York City (this scrape contained a broken link for the calendar file). This data encompassed 136 data scrapes for 43 distinct cities. Older scrapes for each city can be removed to cut down on the data size substantially.
 
 This code uses the directory structure of the data folder to construct the metadata for the scraped data. It is therefore imperative that the directory structure is properly set-up. The listings, calendar, and reviews files must retain their original file names.
 
-For this first step in the data processing, the data is placed into a local SQLite database. The remaining analysis can either be performed on this SQLite database, or the data can be transferred to another store (e.g. a MySQL server on an AWS RDS instance). Total disk space for the gz files (408 files total) is about 6.95 GBs. Total disk space for the complete SQLite database should end up around 64.65 GBs, including the optional indices.
+For this first step in the data processing, the data is placed into a local SQLite database. The remaining analysis can either be performed on this SQLite database, or the data can be transferred to another store (e.g. a MySQL server on an AWS RDS instance). Total disk space for the gz files (408 files total) is about 6.95 GBs. Total disk space for the complete SQLite database should end up around 71.6 GBs, including the optional indices.
 
 
 ```r
@@ -238,7 +238,10 @@ head(dir_df, 20)
 
 ```r
 # Find max data scrape mapping ID already in the SQLite database
-max_scrape <- dbExecute(abnb_db, 'SELECT MAX(DataScrape_ID) FROM Map_DataScrape;')
+max_scrape_temp <- dbSendQuery(abnb_db, 'SELECT MAX(DataScrape_ID) FROM Map_DataScrape;')
+max_scrape <- dbFetch(max_scrape_temp)
+dbClearResult(max_scrape_temp)
+if (is.na(as.integer(max_scrape))) {max_scrape <- 0} else {max_scrape <- as.integer(max_scrape)}
 ```
 
 Define column name data frame for listings table (listings files differ from one city and scrape to another -- this step and several steps within the read code for the listings data must be completed in order to maintain consistency across different data files)
@@ -523,20 +526,14 @@ Transferring the data to a server-based RDBMS solves these problems. Below, the 
 3. Perform the following modification to the read and populate blocks for the calendar, listings, reviews, and data scrape code blocks:
     + Remove all calls to dbWriteTable.
     + In place of the dbWriteTable calls, write the final dataframes to a text file. Make sure to replace all new line, carriage return, and tab characters in fields where these can occur (see statements below to identify the applicable fields).
-    + Execute LOAD DATA LOCAL INFILE statements on the MySQL server using these files (see statements below to for examples).
+    + Execute LOAD DATA LOCAL INFILE statements on the MySQL server using these files (see statements below for examples).
+    + Some fields will require replacement logic to make the output compatible with MySQL data types (see statements below to identify the applicable fields).
     + Additional work may need to be done to handle differences in how MySQL handles NULL fields (concerning how R writes NA values to text files and how MySQL reads the resulting data, and how MySQL handles NULL values for auto-increment NOT NULL columns).
 
 
 ```r
 library(RSQLite)
 library(RMySQL)
-```
-
-```
-## Warning: package 'RMySQL' was built under R version 3.3.3
-```
-
-```r
 library(DBI)
 ```
 
@@ -571,114 +568,116 @@ calendar_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Calendar (
                         ListingID INT NOT NULL,
                         Date DATE NOT NULL,
                         Available VARCHAR(1) NOT NULL,
-                        Price DECIMAL(7, 2) NOT NULL,
+                        Price DECIMAL(8, 2) NOT NULL,
                         PRIMARY KEY (Calendar_ID),
                         UNIQUE INDEX Calendar_ID_UNIQUE (Calendar_ID ASC)
                     );
                     '
 dbExecute(abnb_db_mys, calendar_create)
 listings_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Listings (
-                        Listings_ID INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL,
-                        DataScrape_ID INTEGER NOT NULL,
-                        ID INTEGER NOT NULL,
-                        ListingURL VARCHAR,
-                        ScrapeID INTEGER,
+                        Listings_ID INT NOT NULL AUTO_INCREMENT,
+                        DataScrape_ID INT NOT NULL,
+                        ID INT NOT NULL,
+                        ListingURL VARCHAR(45),
+                        ScrapeID INT,
                         LastSearched DATE,
                         LastScraped DATE,
-                        Name TEXT,
-                        Summary TEXT,
-                        Space TEXT,
-                        Description TEXT,
-                        ExperiencesOffered TEXT,
-                        NeighborhoodOverview TEXT,
-                        Notes TEXT,
-                        Transit TEXT,
-                        Access TEXT,
-                        Interaction TEXT,
-                        HouseRules TEXT,
-                        ThumbnailURL VARCHAR,
-                        MediumURL VARCHAR,
-                        PictureURL VARCHAR,
-                        XLPictureURL VARCHAR,
-                        HostID INTEGER,
-                        HostURL VARCHAR,
-                        HostName VARCHAR,
+                        Name VARCHAR(120),
+                        Summary VARCHAR(1500),
+                        Space VARCHAR(2000),
+                        Description VARCHAR(2500),
+                        ExperiencesOffered VARCHAR(45),
+                        NeighborhoodOverview VARCHAR(2000),
+                        Notes VARCHAR(1200),
+                        Transit VARCHAR(1500),
+                        Access VARCHAR(1200),
+                        Interaction VARCHAR(1200),
+                        HouseRules VARCHAR(1500),
+                        ThumbnailURL VARCHAR(150),
+                        MediumURL VARCHAR(150),
+                        PictureURL VARCHAR(150),
+                        XLPictureURL VARCHAR(150),
+                        HostID INT,
+                        HostURL VARCHAR(120),
+                        HostName VARCHAR(120),
                         HostSince DATE,
-                        HostLocation VARCHAR,
-                        HostAbout TEXT,
-                        HostResponseTime VARCHAR,
-                        HostResponseRate REAL,
-                        HostAcceptanceRate REAL,
-                        HostIsSuperhost VARCHAR,
-                        HostThumbnailURL VARCHAR,
-                        HostPictureURL VARCHAR,
-                        HostNeighborhood VARCHAR,
-                        HostListingsCount INTEGER,
-                        HostTotalListingsCount INTEGER,
-                        HostVerifications VARCHAR,
-                        HostHasProfilePic VARCHAR,
-                        HostIdentityVerified VARCHAR,
-                        Street VARCHAR,
-                        Neighborhood VARCHAR,
-                        NeighborhoodCleansed VARCHAR,
-                        NeighborhoodGroupCleansed VARCHAR,
-                        City VARCHAR,
-                        State VARCHAR,
-                        ZipCode VARCHAR,
-                        Market VARCHAR,
-                        SmartLocation VARCHAR,
-                        CountryCode VARCHAR,
-                        Country VARCHAR,
-                        Latitude VARCHAR,
-                        Longitude VARCHAR,
-                        IsLocationExact VARCHAR,
-                        PropertyType VARCHAR,
-                        RoomType VARCHAR,
-                        Accommodates INTEGER,
-                        Bathrooms INTEGER,
-                        Bedrooms INTEGER,
-                        Beds INTEGER,
-                        BedType VARCHAR,
-                        Amenities VARCHAR,
-                        SquareFeet REAL,
-                        Price REAL,
-                        WeeklyPrice REAL,
-                        MonthlyPrice REAL,
-                        SecurityDeposit REAL,
-                        CleaningFee REAL,
-                        GuestsIncluded INTEGER,
-                        ExtraPeople REAL,
-                        MinimumNights INTEGER,
-                        MaximumNights INTEGER,
-                        CalendarUpdated VARCHAR,
-                        HasAvailability VARCHAR,
-                        Availability30 INTEGER,
-                        Availability60 INTEGER,
-                        Availability90 INTEGER,
-                        Availability365 INTEGER,
+                        HostLocation VARCHAR(200),
+                        HostAbout VARCHAR(6000),
+                        HostResponseTime VARCHAR(45),
+                        HostResponseRate INT,
+                        HostAcceptanceRate INT,
+                        HostIsSuperhost VARCHAR(1),
+                        HostThumbnailURL VARCHAR(150),
+                        HostPictureURL VARCHAR(150),
+                        HostNeighborhood VARCHAR(200),
+                        HostListingsCount INT,
+                        HostTotalListingsCount INT,
+                        HostVerifications VARCHAR(120),
+                        HostHasProfilePic VARCHAR(1),
+                        HostIdentityVerified VARCHAR(1),
+                        Street VARCHAR(120),
+                        Neighborhood VARCHAR(250),
+                        NeighborhoodCleansed VARCHAR(100),
+                        NeighborhoodGroupCleansed VARCHAR(45),
+                        City VARCHAR(100),
+                        State VARCHAR(45),
+                        ZipCode VARCHAR(45),
+                        Market VARCHAR(45),
+                        SmartLocation VARCHAR(100),
+                        CountryCode VARCHAR(2),
+                        Country VARCHAR(45),
+                        Latitude VARCHAR(45),
+                        Longitude VARCHAR(45),
+                        IsLocationExact VARCHAR(1),
+                        PropertyType VARCHAR(45),
+                        RoomType VARCHAR(45),
+                        Accommodates INT,
+                        Bathrooms INT,
+                        Bedrooms INT,
+                        Beds INT,
+                        BedType VARCHAR(45),
+                        Amenities VARCHAR(1000),
+                        SquareFeet DECIMAL(8, 2),
+                        Price DECIMAL(8, 2),
+                        WeeklyPrice DECIMAL(8, 2),
+                        MonthlyPrice DECIMAL(8, 2),
+                        SecurityDeposit DECIMAL(8, 2),
+                        CleaningFee DECIMAL(8, 2),
+                        GuestsIncluded INT,
+                        ExtraPeople DECIMAL(8, 2),
+                        MinimumNights INT,
+                        MaximumNights INT,
+                        CalendarUpdated VARCHAR(45),
+                        HasAvailability VARCHAR(1),
+                        Availability30 INT,
+                        Availability60 INT,
+                        Availability90 INT,
+                        Availability365 INT,
                         CalendarLastScraped DATE,
-                        NumberOfReviews INTEGER,
+                        NumberOfReviews INT,
                         FirstReview DATE,
                         LastReview DATE,
-                        ReviewScoresRating INTEGER,
-                        ReviewScoresAccuracy INTEGER,
-                        ReviewScoresCleanliness INTEGER,
-                        ReviewScoresCheckIn INTEGER,
-                        ReviewScoresCommunication INTEGER,
-                        ReviewScoresLocation INTEGER,
-                        ReviewScoresValue INTEGER,
-                        RequiresLicense VARCHAR,
-                        License VARCHAR,
-                        JurisdictionNames VARCHAR,
-                        InstantBookable VARCHAR,
-                        CancellationPolicy VARCHAR,
-                        RequireGuestProfilePicture VARCHAR,
-                        RequireGuestPhoneVerification VARCHAR,
-                        RegionID INTEGER,
-                        RegionName VARCHAR,
-                        RegionParentID INTEGER,
-                        CalculatedHostListingsCount INTEGER,
-                        ReviewsPerMonth REAL
+                        ReviewScoresRating INT,
+                        ReviewScoresAccuracy INT,
+                        ReviewScoresCleanliness INT,
+                        ReviewScoresCheckIn INT,
+                        ReviewScoresCommunication INT,
+                        ReviewScoresLocation INT,
+                        ReviewScoresValue INT,
+                        RequiresLicense VARCHAR(1),
+                        License VARCHAR(45),
+                        JurisdictionNames VARCHAR(45),
+                        InstantBookable VARCHAR(1),
+                        CancellationPolicy VARCHAR(45),
+                        RequireGuestProfilePicture VARCHAR(1),
+                        RequireGuestPhoneVerification VARCHAR(1),
+                        RegionID INT,
+                        RegionName VARCHAR(45),
+                        RegionParentID INT,
+                        CalculatedHostListingsCount INT,
+                        ReviewsPerMonth DECIMAL(4, 2),
+                        PRIMARY KEY (Listings_ID),
+                        UNIQUE INDEX Listings_ID_UNIQUE (Listings_ID ASC)
                     );
                     '
 dbExecute(abnb_db_mys, listings_create)
@@ -700,7 +699,7 @@ map_data_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Map_DataScrape (
                         DataScrape_ID INT NOT NULL AUTO_INCREMENT,
                         Country VARCHAR(25) NOT NULL,
                         State VARCHAR(35) NOT NULL,
-                        City(25) VARCHAR NOT NULL,
+                        City VARCHAR(25) NOT NULL,
                         DataScrapeDate DATE NOT NULL,
                         PRIMARY KEY (DataScrape_ID),
                         UNIQUE INDEX DataScrape_ID_UNIQUE (DataScrape_ID ASC)
@@ -708,6 +707,72 @@ map_data_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Map_DataScrape (
                     '
 dbExecute(abnb_db_mys, map_data_create)
 ```
+
+Add unique index to mapping table, to prevent duplication of scrapes in event of multiple runs  
+MySQL has no CREATE INDEX IF NOT EXISTS functionality, so do not run this code chunk if the index already exists.
+
+
+```r
+idx_datascrape_unique <- 'CREATE UNIQUE INDEX idx_unique_scrape ON airbnb.Map_DataScrape (
+                              Country
+                              ,State
+                              ,City
+                              ,DataScrapeDate
+                          );
+                          '
+dbExecute(abnb_db_mys, idx_datascrape_unique)
+```
+
+
+```r
+# Find max data scrape mapping ID already in the MySQL database
+max_scrape_temp <- dbSendQuery(abnb_db_mys, 'SELECT MAX(DataScrape_ID) FROM airbnb.Map_DataScrape;')
+max_scrape <- dbFetch(max_scrape_temp)
+dbClearResult(max_scrape_temp)
+if (is.na(as.integer(max_scrape))) {max_scrape <- 0} else {max_scrape <- as.integer(max_scrape)}
+```
+
+The process of moving data from the SQLite database into the MySQL server will involve writing the SQLite data to a text file, and then calling a LOAD DATA LOCAL INFILE command to on the MySQL server which will read the data in the text file. The data will be transferred in batches to allow us to pick up where we left off if we only want to transfer some of the data, or if the transfer process fails.
+
+First, we must find how many rows are in each of the three large tables (Calendar, Listings, and Reviews) in the SQLite database. This will tell us how long to run our loops for the text file creation. Then we can begin writing the data from the SQLite database and reading them from the MySQL server.
+
+
+```r
+# Find max data scrape mapping ID already in the MySQL database
+table_rows_temp <- dbSendQuery(abnb_db_slt, 'SELECT COUNT(*) AS RowCount FROM Calendar
+                                             UNION ALL
+                                             SELECT COUNT(*) AS RowCount FROM Listings
+                                             UNION ALL
+                                             SELECT COUNT(*) AS RowCount FROM Reviews;')
+table_rows <- dbFetch(table_rows_temp)
+invisible(dbClearResult(table_rows_temp))
+rownames(table_rows) <- c('Calendar', 'Listings', 'Reviews')
+table_rows
+```
+
+```
+          RowCount
+Calendar 702590690
+Listings   1924970
+Reviews   25220866
+```
+
+Because the Calendar table is narrow, we can transfer it in batches of half a million. The wider Listings and Reviews tables will be transferred in batches of 100,000.
+
+
+```r
+work_dir <- getwd()
+```
+
+
+
+
+
+
+
+
+
+
 
 Disconnect from the SQLite and MySQL databases
 
