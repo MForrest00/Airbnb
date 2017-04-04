@@ -568,7 +568,7 @@ calendar_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Calendar (
                         ListingID INT NOT NULL,
                         Date DATE NOT NULL,
                         Available VARCHAR(1) NOT NULL,
-                        Price DECIMAL(8, 2) NOT NULL,
+                        Price DECIMAL(8, 2),
                         PRIMARY KEY (Calendar_ID),
                         UNIQUE INDEX Calendar_ID_UNIQUE (Calendar_ID ASC)
                     );
@@ -734,11 +734,11 @@ if (is.na(as.integer(max_scrape))) {max_scrape <- 0} else {max_scrape <- as.inte
 
 The process of moving data from the SQLite database into the MySQL server will involve writing the SQLite data to a text file and then calling a LOAD DATA LOCAL INFILE command on the MySQL server which will read the data in the text file. The data will be transferred in batches to allow us to pick up where we left off if we only want to transfer some of the data or if the transfer process fails in the middle of the loop.
 
-First, we must find how many rows are in each of the three large tables (Calendar, Listings, and Reviews) in the SQLite database. This will tell us how long to run our loops. Then we can begin writing the data from the SQLite database and reading them from the MySQL server.
+First, we must find how many rows are in each of the three large tables (Calendar, Listings, and Reviews) in the SQLite database. This will tell us how long to run our loops. Then we can begin writing the data from the SQLite database and reading it into the MySQL server.
 
 
 ```r
-# Find max data scrape mapping ID already in the MySQL database
+# Find row count of large tables
 table_rows_temp <- dbSendQuery(abnb_db_slt, 'SELECT COUNT(*) AS RowCount FROM Calendar
                                              UNION ALL
                                              SELECT COUNT(*) AS RowCount FROM Listings
@@ -768,11 +768,45 @@ work_dir_stem <- getwd()
 ```r
 loop <- 0
 batch_size <- 500000
-while (loop < table_rows[1, 1]) {
-    calendar_sql <- 'SELECT 
+work_dir <- paste(work_dir_stem, '/calendar_transf.txt', sep = '')
+while (loop < 1500000) { # table_rows[1, 1]
+    # Query Calendar table
+    calendar_sql <- 'SELECT
+                         Calendar_ID
+                         ,DataScrape_ID
+                         ,ListingID
+                         ,Date
+                         ,Available
+                         ,CASE WHEN Price = \'\' THEN \'NULL\' ELSE CAST(Price AS TEXT) END AS Price
+                     FROM Calendar
+                     LIMIT '
+    calendar_rows_temp <- dbSendQuery(abnb_db_slt, paste(calendar_sql, format(loop, scientific = FALSE), ', ',
+                                                         format(batch_size, scientific = FALSE), ';',
+                                                         sep = ''))
+    calendar_rows <- dbFetch(calendar_rows_temp)
+    dbClearResult(calendar_rows_temp)
+    
+    # Write results to temp file
+    write.table(calendar_rows, file = 'calendar_transf.txt', quote = FALSE, sep = '|', row.names = FALSE,
+                col.names = FALSE)
+    
+    # Read results into MySQL from temp file
+    calendar_load_stem1 <- 'LOAD DATA LOCAL INFILE \''
+    calendar_load_stem2 <- '\' INTO TABLE airbnb.Calendar
+                            FIELDS TERMINATED BY \'|\'
+                            LINES TERMINATED BY \'\r\n\'
+                            (Calendar_ID, DataScrape_ID, ListingID, Date, Available, @var1)
+                            SET Price = IF(@var1 = \'NULL\', NULL, @var1);'
+    calendar_load <- dbSendStatement(abnb_db_mys, paste(calendar_load_stem1, work_dir, calendar_load_stem2,
+                                                        sep = ''))
+    dbClearResult(calendar_load)
     
     loop <- loop + batch_size
 }
+
+# Remove temp file and large objects
+if (file.exists('calendar_transf.txt')) {file.remove('calendar_transf.txt')}
+if (exists('calendar_rows')) {rm(calendar_rows)}
 ```
 
 
@@ -783,7 +817,8 @@ scrape <- dbFetch(scrape_temp)
 dbClearResult(scrape_temp)
 
 # Write results to temp file
-write.table(scrape, file = 'scrape_transf.txt', quote = FALSE, sep = '|', row.names = FALSE, col.names = FALSE)
+write.table(scrape, file = 'scrape_transf.txt', quote = FALSE, sep = '|', row.names = FALSE,
+            col.names = FALSE)
 work_dir <- paste(work_dir_stem, '/scrape_transf.txt', sep = '')
 
 # Read results into MySQL from temp file

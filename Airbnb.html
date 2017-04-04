@@ -604,7 +604,7 @@ calendar_create &lt;- &#39;CREATE TABLE IF NOT EXISTS airbnb.Calendar (
                         ListingID INT NOT NULL,
                         Date DATE NOT NULL,
                         Available VARCHAR(1) NOT NULL,
-                        Price DECIMAL(8, 2) NOT NULL,
+                        Price DECIMAL(8, 2),
                         PRIMARY KEY (Calendar_ID),
                         UNIQUE INDEX Calendar_ID_UNIQUE (Calendar_ID ASC)
                     );
@@ -758,8 +758,8 @@ max_scrape &lt;- dbFetch(max_scrape_temp)
 dbClearResult(max_scrape_temp)
 if (is.na(as.integer(max_scrape))) {max_scrape &lt;- 0} else {max_scrape &lt;- as.integer(max_scrape)}</code></pre>
 <p>The process of moving data from the SQLite database into the MySQL server will involve writing the SQLite data to a text file and then calling a LOAD DATA LOCAL INFILE command on the MySQL server which will read the data in the text file. The data will be transferred in batches to allow us to pick up where we left off if we only want to transfer some of the data or if the transfer process fails in the middle of the loop.</p>
-<p>First, we must find how many rows are in each of the three large tables (Calendar, Listings, and Reviews) in the SQLite database. This will tell us how long to run our loops. Then we can begin writing the data from the SQLite database and reading them from the MySQL server.</p>
-<pre class="r"><code># Find max data scrape mapping ID already in the MySQL database
+<p>First, we must find how many rows are in each of the three large tables (Calendar, Listings, and Reviews) in the SQLite database. This will tell us how long to run our loops. Then we can begin writing the data from the SQLite database and reading it into the MySQL server.</p>
+<pre class="r"><code># Find row count of large tables
 table_rows_temp &lt;- dbSendQuery(abnb_db_slt, &#39;SELECT COUNT(*) AS RowCount FROM Calendar
                                              UNION ALL
                                              SELECT COUNT(*) AS RowCount FROM Listings
@@ -777,18 +777,53 @@ Reviews   25220866</code></pre>
 <pre class="r"><code>work_dir_stem &lt;- getwd()</code></pre>
 <pre class="r"><code>loop &lt;- 0
 batch_size &lt;- 500000
-while (loop &lt; table_rows[1, 1]) {
-    calendar_sql &lt;- &#39;SELECT 
+work_dir &lt;- paste(work_dir_stem, &#39;/calendar_transf.txt&#39;, sep = &#39;&#39;)
+while (loop &lt; 1500000) { # table_rows[1, 1]
+    # Query Calendar table
+    calendar_sql &lt;- &#39;SELECT
+                         Calendar_ID
+                         ,DataScrape_ID
+                         ,ListingID
+                         ,Date
+                         ,Available
+                         ,CASE WHEN Price = \&#39;\&#39; THEN \&#39;NULL\&#39; ELSE CAST(Price AS TEXT) END AS Price
+                     FROM Calendar
+                     LIMIT &#39;
+    calendar_rows_temp &lt;- dbSendQuery(abnb_db_slt, paste(calendar_sql, format(loop, scientific = FALSE), &#39;, &#39;,
+                                                         format(batch_size, scientific = FALSE), &#39;;&#39;,
+                                                         sep = &#39;&#39;))
+    calendar_rows &lt;- dbFetch(calendar_rows_temp)
+    dbClearResult(calendar_rows_temp)
+    
+    # Write results to temp file
+    write.table(calendar_rows, file = &#39;calendar_transf.txt&#39;, quote = FALSE, sep = &#39;|&#39;, row.names = FALSE,
+                col.names = FALSE)
+    
+    # Read results into MySQL from temp file
+    calendar_load_stem1 &lt;- &#39;LOAD DATA LOCAL INFILE \&#39;&#39;
+    calendar_load_stem2 &lt;- &#39;\&#39; INTO TABLE airbnb.Calendar
+                            FIELDS TERMINATED BY \&#39;|\&#39;
+                            LINES TERMINATED BY \&#39;\r\n\&#39;
+                            (Calendar_ID, DataScrape_ID, ListingID, Date, Available, @var1)
+                            SET Price = IF(@var1 = \&#39;NULL\&#39;, NULL, @var1);&#39;
+    calendar_load &lt;- dbSendStatement(abnb_db_mys, paste(calendar_load_stem1, work_dir, calendar_load_stem2,
+                                                        sep = &#39;&#39;))
+    dbClearResult(calendar_load)
     
     loop &lt;- loop + batch_size
-}</code></pre>
+}
+
+# Remove temp file and large objects
+if (file.exists(&#39;calendar_transf.txt&#39;)) {file.remove(&#39;calendar_transf.txt&#39;)}
+if (exists(&#39;calendar_rows&#39;)) {rm(calendar_rows)}</code></pre>
 <pre class="r"><code># Query all content from data scrape mapping table in SQLite
 scrape_temp &lt;- dbSendQuery(abnb_db_slt, &#39;SELECT * FROM Map_DataScrape;&#39;)
 scrape &lt;- dbFetch(scrape_temp)
 dbClearResult(scrape_temp)
 
 # Write results to temp file
-write.table(scrape, file = &#39;scrape_transf.txt&#39;, quote = FALSE, sep = &#39;|&#39;, row.names = FALSE, col.names = FALSE)
+write.table(scrape, file = &#39;scrape_transf.txt&#39;, quote = FALSE, sep = &#39;|&#39;, row.names = FALSE,
+            col.names = FALSE)
 work_dir &lt;- paste(work_dir_stem, &#39;/scrape_transf.txt&#39;, sep = &#39;&#39;)
 
 # Read results into MySQL from temp file
