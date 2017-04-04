@@ -689,7 +689,7 @@ reviews_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Reviews (
                        Date DATE NOT NULL,
                        ReviewerID INT NOT NULL,
                        ReviewerName VARCHAR(300) NOT NULL,
-                       Comments VARCHAR(6000) NOT NULL,
+                       Comments VARCHAR(14000) NOT NULL,
                        PRIMARY KEY (Reviews_ID),
                        UNIQUE INDEX Reviews_ID_UNIQUE (Reviews_ID ASC)
                    );
@@ -769,7 +769,7 @@ work_dir_stem <- getwd()
 loop <- 0
 batch_size <- 500000
 work_dir <- paste(work_dir_stem, '/calendar_transf.txt', sep = '')
-while (loop < 1500000) { # table_rows[1, 1]
+while (loop < table_rows[1, 1]) {
     # Query Calendar table
     calendar_sql <- 'SELECT
                          Calendar_ID
@@ -810,6 +810,62 @@ if (exists('calendar_rows')) {rm(calendar_rows)}
 ```
 
 
+
+
+
+
+
+
+
+```r
+loop <- 0
+batch_size <- 100000
+work_dir <- paste(work_dir_stem, '/reviews_transf.txt', sep = '')
+while (loop < table_rows[3, 1]) {
+    # Query Reviews table -- replace all characters that might interfere with data transfer
+    reviews_sql <- 'SELECT
+                        Reviews_ID
+                        ,DataScrape_ID
+                        ,ListingID
+                        ,ID
+                        ,Date
+                        ,ReviewerID
+                        ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(ReviewerName,
+                            CHAR(9), \' \'), CHAR(10), \' \'), CHAR(11), \'\'), CHAR(13), \' \'),
+                            CHAR(8), \'\'), \'|\', \'-\'), CHAR(92), \'-\') AS ReviewerName
+                        ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Comments,
+                            CHAR(9), \' \'), CHAR(10), \' \'), CHAR(11), \'\'), CHAR(13), \' \'),
+                            CHAR(8), \'\'), \'|\', \'-\'), CHAR(92), \'-\') AS Comments
+                    FROM Reviews
+                    LIMIT '
+    reviews_rows_temp <- dbSendQuery(abnb_db_slt, paste(reviews_sql, format(loop, scientific = FALSE), ', ',
+                                                         format(batch_size, scientific = FALSE), ';',
+                                                         sep = ''))
+    reviews_rows <- dbFetch(reviews_rows_temp)
+    dbClearResult(reviews_rows_temp)
+    
+    # Write results to temp file
+    write.table(reviews_rows, file = 'reviews_transf.txt', quote = FALSE, sep = '|', row.names = FALSE,
+                col.names = FALSE)
+    
+    # Read results into MySQL from temp file
+    reviews_load_stem1 <- 'LOAD DATA LOCAL INFILE \''
+    reviews_load_stem2 <- '\' INTO TABLE airbnb.Reviews
+                           FIELDS TERMINATED BY \'|\'
+                           LINES TERMINATED BY \'\r\n\';'
+    reviews_load <- dbSendStatement(abnb_db_mys, paste(reviews_load_stem1, work_dir, reviews_load_stem2,
+                                                       sep = ''))
+    dbClearResult(reviews_load)
+    
+    loop <- loop + batch_size
+}
+
+# Remove temp file and large objects
+if (file.exists('reviews_transf.txt')) {file.remove('reviews_transf.txt')}
+if (exists('reviews_rows')) {rm(reviews_rows)}
+```
+
+
 ```r
 # Query all content from data scrape mapping table in SQLite
 scrape_temp <- dbSendQuery(abnb_db_slt, 'SELECT * FROM Map_DataScrape;')
@@ -832,6 +888,13 @@ dbClearResult(scrape_load)
 # Remove temp file
 if (file.exists('scrape_transf.txt')) {file.remove('scrape_transf.txt')}
 ```
+
+
+
+
+
+
+
 
 
 

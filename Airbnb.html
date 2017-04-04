@@ -725,7 +725,7 @@ reviews_create &lt;- &#39;CREATE TABLE IF NOT EXISTS airbnb.Reviews (
                        Date DATE NOT NULL,
                        ReviewerID INT NOT NULL,
                        ReviewerName VARCHAR(300) NOT NULL,
-                       Comments VARCHAR(6000) NOT NULL,
+                       Comments VARCHAR(14000) NOT NULL,
                        PRIMARY KEY (Reviews_ID),
                        UNIQUE INDEX Reviews_ID_UNIQUE (Reviews_ID ASC)
                    );
@@ -778,7 +778,7 @@ Reviews   25220866</code></pre>
 <pre class="r"><code>loop &lt;- 0
 batch_size &lt;- 500000
 work_dir &lt;- paste(work_dir_stem, &#39;/calendar_transf.txt&#39;, sep = &#39;&#39;)
-while (loop &lt; 1500000) { # table_rows[1, 1]
+while (loop &lt; table_rows[1, 1]) {
     # Query Calendar table
     calendar_sql &lt;- &#39;SELECT
                          Calendar_ID
@@ -816,6 +816,51 @@ while (loop &lt; 1500000) { # table_rows[1, 1]
 # Remove temp file and large objects
 if (file.exists(&#39;calendar_transf.txt&#39;)) {file.remove(&#39;calendar_transf.txt&#39;)}
 if (exists(&#39;calendar_rows&#39;)) {rm(calendar_rows)}</code></pre>
+<pre class="r"><code>loop &lt;- 0
+batch_size &lt;- 100000
+work_dir &lt;- paste(work_dir_stem, &#39;/reviews_transf.txt&#39;, sep = &#39;&#39;)
+while (loop &lt; table_rows[3, 1]) {
+    # Query Reviews table -- replace all characters that might interfere with data transfer
+    reviews_sql &lt;- &#39;SELECT
+                        Reviews_ID
+                        ,DataScrape_ID
+                        ,ListingID
+                        ,ID
+                        ,Date
+                        ,ReviewerID
+                        ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(ReviewerName,
+                            CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                            CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) AS ReviewerName
+                        ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Comments,
+                            CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                            CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) AS Comments
+                    FROM Reviews
+                    LIMIT &#39;
+    reviews_rows_temp &lt;- dbSendQuery(abnb_db_slt, paste(reviews_sql, format(loop, scientific = FALSE), &#39;, &#39;,
+                                                         format(batch_size, scientific = FALSE), &#39;;&#39;,
+                                                         sep = &#39;&#39;))
+    reviews_rows &lt;- dbFetch(reviews_rows_temp)
+    dbClearResult(reviews_rows_temp)
+    
+    # Write results to temp file
+    write.table(reviews_rows, file = &#39;reviews_transf.txt&#39;, quote = FALSE, sep = &#39;|&#39;, row.names = FALSE,
+                col.names = FALSE)
+    
+    # Read results into MySQL from temp file
+    reviews_load_stem1 &lt;- &#39;LOAD DATA LOCAL INFILE \&#39;&#39;
+    reviews_load_stem2 &lt;- &#39;\&#39; INTO TABLE airbnb.Reviews
+                           FIELDS TERMINATED BY \&#39;|\&#39;
+                           LINES TERMINATED BY \&#39;\r\n\&#39;;&#39;
+    reviews_load &lt;- dbSendStatement(abnb_db_mys, paste(reviews_load_stem1, work_dir, reviews_load_stem2,
+                                                       sep = &#39;&#39;))
+    dbClearResult(reviews_load)
+    
+    loop &lt;- loop + batch_size
+}
+
+# Remove temp file and large objects
+if (file.exists(&#39;reviews_transf.txt&#39;)) {file.remove(&#39;reviews_transf.txt&#39;)}
+if (exists(&#39;reviews_rows&#39;)) {rm(reviews_rows)}</code></pre>
 <pre class="r"><code># Query all content from data scrape mapping table in SQLite
 scrape_temp &lt;- dbSendQuery(abnb_db_slt, &#39;SELECT * FROM Map_DataScrape;&#39;)
 scrape &lt;- dbFetch(scrape_temp)
