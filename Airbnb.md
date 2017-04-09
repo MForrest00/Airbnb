@@ -526,8 +526,8 @@ Transferring the data to a server-based RDBMS solves these problems. Below, the 
 3. Perform the following modifications to the read and populate blocks for the calendar, listings, reviews, and data scrape code blocks:
     + Remove all calls to dbWriteTable.
     + In place of the dbWriteTable calls, write the final dataframes to a text file. Make sure to replace all new line, carriage return, and tab characters in fields where these can occur (see statements below to identify the applicable fields).
+    + Some fields will require replacement logic to make the output compatible with MySQL data types (see statements below to identify the applicable fields). SQLite accepts any value of any length in any column, regardless of the column data type. The SELECT statements must therefore contain logic which transforms the output into data that MySQL can upload without producing warnings.
     + Execute LOAD DATA LOCAL INFILE statements on the MySQL server using these files (see statements below for examples).
-    + Some fields will require replacement logic to make the output compatible with MySQL data types (see statements below to identify the applicable fields).
     + Additional work may need to be done to handle differences in how MySQL handles NULL fields (concerning how R writes NA values to text files and how MySQL reads the resulting data, and how MySQL handles NULL values for auto-increment NOT NULL columns).
 
 
@@ -558,6 +558,7 @@ abnb_db_mys <- dbConnect(MySQL(), dbname = 'airbnb', username = mysql_user_name,
 ```
 
 Create the MySQL tables if they do not exist
+Field sizes were determined by manually investigating the maximum values (for integer or decimal fields) or the maximum character lengths (for varchar fields) in the SQLite database. Future data may require modifications to the table structure to prevent truncation of data.
 
 
 ```r
@@ -568,7 +569,7 @@ calendar_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Calendar (
                         ListingID INT NOT NULL,
                         Date DATE NOT NULL,
                         Available VARCHAR(1) NOT NULL,
-                        Price DECIMAL(8, 2),
+                        Price DECIMAL(9, 2),
                         PRIMARY KEY (Calendar_ID),
                         UNIQUE INDEX Calendar_ID_UNIQUE (Calendar_ID ASC)
                     );
@@ -579,75 +580,75 @@ listings_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Listings (
                         DataScrape_ID INT NOT NULL,
                         ID INT NOT NULL,
                         ListingURL VARCHAR(45),
-                        ScrapeID INT,
+                        ScrapeID BIGINT,
                         LastSearched DATE,
                         LastScraped DATE,
-                        Name VARCHAR(120),
-                        Summary VARCHAR(1500),
-                        Space VARCHAR(2000),
-                        Description VARCHAR(2500),
+                        Name VARCHAR(300),
+                        Summary VARCHAR(2300),
+                        Space VARCHAR(3000),
+                        Description VARCHAR(3000),
                         ExperiencesOffered VARCHAR(45),
-                        NeighborhoodOverview VARCHAR(2000),
-                        Notes VARCHAR(1200),
-                        Transit VARCHAR(1500),
-                        Access VARCHAR(1200),
-                        Interaction VARCHAR(1200),
-                        HouseRules VARCHAR(1500),
-                        ThumbnailURL VARCHAR(150),
-                        MediumURL VARCHAR(150),
-                        PictureURL VARCHAR(150),
-                        XLPictureURL VARCHAR(150),
+                        NeighborhoodOverview VARCHAR(3000),
+                        Notes VARCHAR(3000),
+                        Transit VARCHAR(3000),
+                        Access VARCHAR(3000),
+                        Interaction VARCHAR(3000),
+                        HouseRules VARCHAR(3000),
+                        ThumbnailURL VARCHAR(200),
+                        MediumURL VARCHAR(200),
+                        PictureURL VARCHAR(200),
+                        XLPictureURL VARCHAR(200),
                         HostID INT,
                         HostURL VARCHAR(120),
-                        HostName VARCHAR(120),
+                        HostName VARCHAR(200),
                         HostSince DATE,
-                        HostLocation VARCHAR(200),
-                        HostAbout VARCHAR(6000),
+                        HostLocation VARCHAR(300),
+                        HostAbout VARCHAR(20000),
                         HostResponseTime VARCHAR(45),
                         HostResponseRate INT,
                         HostAcceptanceRate INT,
                         HostIsSuperhost VARCHAR(1),
-                        HostThumbnailURL VARCHAR(150),
-                        HostPictureURL VARCHAR(150),
-                        HostNeighborhood VARCHAR(200),
+                        HostThumbnailURL VARCHAR(200),
+                        HostPictureURL VARCHAR(200),
+                        HostNeighborhood VARCHAR(300),
                         HostListingsCount INT,
                         HostTotalListingsCount INT,
-                        HostVerifications VARCHAR(120),
+                        HostVerifications VARCHAR(200),
                         HostHasProfilePic VARCHAR(1),
                         HostIdentityVerified VARCHAR(1),
-                        Street VARCHAR(120),
-                        Neighborhood VARCHAR(250),
-                        NeighborhoodCleansed VARCHAR(100),
+                        Street VARCHAR(300),
+                        Neighborhood VARCHAR(300),
+                        NeighborhoodCleansed VARCHAR(120),
                         NeighborhoodGroupCleansed VARCHAR(45),
-                        City VARCHAR(100),
-                        State VARCHAR(45),
-                        ZipCode VARCHAR(45),
-                        Market VARCHAR(45),
-                        SmartLocation VARCHAR(100),
-                        CountryCode VARCHAR(2),
-                        Country VARCHAR(45),
-                        Latitude VARCHAR(45),
-                        Longitude VARCHAR(45),
+                        City VARCHAR(300),
+                        State VARCHAR(120),
+                        ZipCode VARCHAR(70),
+                        Market VARCHAR(70),
+                        SmartLocation VARCHAR(300),
+                        CountryCode VARCHAR(10),
+                        Country VARCHAR(25),
+                        Latitude VARCHAR(25),
+                        Longitude VARCHAR(25),
                         IsLocationExact VARCHAR(1),
-                        PropertyType VARCHAR(45),
-                        RoomType VARCHAR(45),
+                        PropertyType VARCHAR(25),
+                        RoomType VARCHAR(25),
                         Accommodates INT,
                         Bathrooms INT,
                         Bedrooms INT,
                         Beds INT,
-                        BedType VARCHAR(45),
-                        Amenities VARCHAR(1000),
+                        BedType VARCHAR(25),
+                        Amenities VARCHAR(800),
                         SquareFeet DECIMAL(8, 2),
-                        Price DECIMAL(8, 2),
-                        WeeklyPrice DECIMAL(8, 2),
-                        MonthlyPrice DECIMAL(8, 2),
-                        SecurityDeposit DECIMAL(8, 2),
+                        Price DECIMAL(9, 2),
+                        WeeklyPrice DECIMAL(10, 2),
+                        MonthlyPrice DECIMAL(11, 2),
+                        SecurityDeposit DECIMAL(9, 2),
                         CleaningFee DECIMAL(8, 2),
                         GuestsIncluded INT,
                         ExtraPeople DECIMAL(8, 2),
                         MinimumNights INT,
                         MaximumNights INT,
-                        CalendarUpdated VARCHAR(45),
+                        CalendarUpdated VARCHAR(25),
                         HasAvailability VARCHAR(1),
                         Availability30 INT,
                         Availability60 INT,
@@ -665,14 +666,14 @@ listings_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Listings (
                         ReviewScoresLocation INT,
                         ReviewScoresValue INT,
                         RequiresLicense VARCHAR(1),
-                        License VARCHAR(45),
-                        JurisdictionNames VARCHAR(45),
+                        License VARCHAR(600),
+                        JurisdictionNames VARCHAR(120),
                         InstantBookable VARCHAR(1),
-                        CancellationPolicy VARCHAR(45),
+                        CancellationPolicy VARCHAR(25),
                         RequireGuestProfilePicture VARCHAR(1),
                         RequireGuestPhoneVerification VARCHAR(1),
                         RegionID INT,
-                        RegionName VARCHAR(45),
+                        RegionName VARCHAR(25),
                         RegionParentID INT,
                         CalculatedHostListingsCount INT,
                         ReviewsPerMonth DECIMAL(4, 2),
@@ -777,7 +778,7 @@ while (loop < table_rows[1, 1]) {
                          ,ListingID
                          ,Date
                          ,Available
-                         ,CASE WHEN Price = \'\' THEN \'NULL\' ELSE CAST(Price AS TEXT) END AS Price
+                         ,CASE WHEN Price = \'\' THEN \'NULLTYPE\' ELSE CAST(Price AS TEXT) END AS Price
                      FROM Calendar
                      LIMIT '
     calendar_rows_temp <- dbSendQuery(abnb_db_slt, paste(calendar_sql, format(loop, scientific = FALSE), ', ',
@@ -796,7 +797,7 @@ while (loop < table_rows[1, 1]) {
                             FIELDS TERMINATED BY \'|\'
                             LINES TERMINATED BY \'\r\n\'
                             (Calendar_ID, DataScrape_ID, ListingID, Date, Available, @var1)
-                            SET Price = IF(@var1 = \'NULL\', NULL, @var1);'
+                            SET Price = IF(@var1 = \'NULLTYPE\', NULL, @var1);'
     calendar_load <- dbSendStatement(abnb_db_mys, paste(calendar_load_stem1, work_dir, calendar_load_stem2,
                                                         sep = ''))
     dbClearResult(calendar_load)
@@ -809,6 +810,265 @@ if (file.exists('calendar_transf.txt')) {file.remove('calendar_transf.txt')}
 if (exists('calendar_rows')) {rm(calendar_rows)}
 ```
 
+
+
+
+
+
+
+```r
+loop <- 0
+batch_size <- 100000
+work_dir <- paste(work_dir_stem, '/listings_transf.txt', sep = '')
+while (loop < 300000) { ## table_rows[2, 1]
+    # Query Listings table -- replace all characters that might interfere with data transfer and properly label NULLs
+    listings_sql <- 'SELECT
+                         Listings_ID
+                         ,DataScrape_ID
+                         ,ID
+                         ,CASE WHEN ListingURL IS NULL THEN \'NULLTYPE\' ELSE ListingURL END AS ListingURL
+                         ,ScrapeID
+                         ,CASE
+                             WHEN LastSearched IS NULL OR LastSearched = \'\'
+                             THEN \'NULLTYPE\'
+                             ELSE CAST(LastSearched AS TEXT) END AS LastSearched
+                         ,LastScraped
+                         ,Name
+                         ,CASE WHEN Summary IS NULL THEN \'NULLTYPE\' ELSE Summary END AS Summary
+                         ,CASE WHEN Space IS NULL THEN \'NULLTYPE\' ELSE Space END AS Space
+                         ,CASE WHEN Description IS NULL THEN \'NULLTYPE\' ELSE Description END AS Description
+                         ,CASE
+                             WHEN ExperiencesOffered IS NULL
+                             THEN \'NULLTYPE\'
+                             ELSE ExperiencesOffered END AS ExperiencesOffered
+                         ,CASE
+                             WHEN NeighborhoodOverview IS NULL
+                             THEN \'NULLTYPE\'
+                             ELSE NeighborhoodOverview END AS NeighborhoodOverview
+                         ,CASE WHEN Notes IS NULL THEN \'NULLTYPE\' ELSE Notes END AS Notes
+                         ,CASE WHEN Transit IS NULL THEN \'NULLTYPE\' ELSE Transit END AS Transit
+                         ,CASE WHEN Access IS NULL THEN \'NULLTYPE\' ELSE Access END AS Access
+                         ,CASE WHEN Interaction IS NULL THEN \'NULLTYPE\' ELSE Interaction END AS Interaction
+                         ,CASE WHEN HouseRules IS NULL THEN \'NULLTYPE\' ELSE HouseRules END AS HouseRules
+                         ,CASE
+                             WHEN ThumbnailURL IS NULL
+                             THEN \'NULLTYPE\'
+                             ELSE ThumbnailURL END AS ThumbnailURL
+                         ,CASE WHEN MediumURL IS NULL THEN \'NULLTYPE\' ELSE MediumURL END AS MediumURL
+                         ,PictureURL
+                         ,CASE
+                             WHEN XLPictureURL IS NULL
+                             THEN \'NULLTYPE\'
+                             ELSE XLPictureURL END AS XLPictureURL
+                         ,HostID
+                         ,CASE WHEN HostURL IS NULL THEN \'NULLTYPE\' ELSE HostURL END AS HostURL
+                         ,HostName
+                         ,CASE
+                             WHEN HostSince = \'\'
+                             THEN \'NULLTYPE\'
+                             ELSE CAST(HostSince AS TEXT) END AS HostSince
+                         ,CASE
+                             WHEN HostLocation IS NULL
+                             THEN \'NULLTYPE\'
+                             ELSE HostLocation END AS HostLocation
+                         ,CASE WHEN HostAbout IS NULL THEN \'NULLTYPE\' ELSE HostAbout END AS HostAbout
+                         ,CASE
+                             WHEN HostResponseTime IS NULL
+                             THEN \'NULLTYPE\'
+                             ELSE HostResponseTime END AS HostResponseTime
+                         ,CASE
+                             WHEN HostResponseRate IS NULL OR HostResponseRate IN (\'\', \'N/A\')
+                             THEN \'NULLTYPE\'
+                             ELSE CAST(HostResponseRate AS TEXT) END AS HostResponseRate
+                         ,CASE
+                             WHEN HostAcceptanceRate IS NULL OR HostAcceptanceRate IN (\'\', \'N/A\')
+                             THEN \'NULLTYPE\'
+                             ELSE CAST(HostAcceptanceRate AS TEXT) END AS HostAcceptanceRate
+                         ,CASE
+                             WHEN HostIsSuperhost IS NULL
+                             THEN \'NULLTYPE\'
+                             ELSE HostIsSuperhost END AS HostIsSuperhost
+                         ,CASE
+                             WHEN HostThumbnailURL IS NULL
+                             THEN \'NULLTYPE\'
+                             ELSE HostThumbnailURL END AS HostThumbnailURL
+                         ,HostPictureURL
+                         ,CASE
+                             WHEN HostNeighborhood IS NULL
+                             THEN \'NULLTYPE\'
+                             ELSE HostNeighborhood END AS HostNeighborhood
+                         ,CASE
+                             WHEN HostListingsCount IS NULL OR HostListingsCount = \'\'
+                             THEN \'NULLTYPE\'
+                             ELSE CAST(HostListingsCount AS TEXT) END AS HostListingsCount
+                         ,CASE
+                             WHEN HostTotalListingsCount IS NULL OR HostTotalListingsCount = \'\'
+                             THEN \'NULLTYPE\'
+                             ELSE CAST(HostTotalListingsCount AS TEXT) END AS HostTotalListingsCount
+                         ,CASE
+                             WHEN HostVerifications IS NULL
+                             THEN \'NULLTYPE\'
+                             ELSE HostVerifications END AS HostVerifications
+                         ,CASE
+                             WHEN HostHasProfilePic IS NULL
+                             THEN \'NULLTYPE\'
+                             ELSE HostHasProfilePic END AS HostHasProfilePic
+                         ,CASE
+                             WHEN HostIdentityVerified IS NULL
+                             THEN \'NULLTYPE\'
+                             ELSE HostIdentityVerified END AS HostIdentityVerified
+                         ,Street
+                         ,Neighborhood
+                         ,NeighborhoodCleansed
+                         ,CASE
+                             WHEN NeighborhoodGroupCleansed IS NULL
+                             THEN \'NULLTYPE\'
+                             ELSE NeighborhoodGroupCleansed END AS NeighborhoodGroupCleansed
+                         ,City
+                         ,State
+                         ,ZipCode
+                         ,Market
+                         ,CASE
+                             WHEN SmartLocation IS NULL
+                             THEN \'NULLTYPE\'
+                             ELSE SmartLocation END AS SmartLocation
+                         ,CASE WHEN CountryCode IS NULL THEN \'NULLTYPE\' ELSE CountryCode END AS CountryCode
+                         ,Country
+                         ,Latitude
+                         ,Longitude
+                         ,IsLocationExact
+                         ,PropertyType
+                         ,RoomType
+                         ,CASE
+                             WHEN Accommodates = \'\'
+                             THEN \'NULLTYPE\'
+                             ELSE CAST(Accommodates AS TEXT) END AS Accommodates
+                         ,CASE
+                             WHEN Bathrooms = \'\'
+                             THEN \'NULLTYPE\'
+                             ELSE CAST(Bathrooms AS TEXT) END AS Bathrooms
+                         ,CASE
+                             WHEN Bedrooms = \'\'
+                             THEN \'NULLTYPE\'
+                             ELSE CAST(Bedrooms AS TEXT) END AS Bedrooms
+                         ,CASE WHEN Beds = \'\' THEN \'NULLTYPE\' ELSE CAST(Beds AS TEXT) END AS Beds
+                         ,BedType
+                         ,CASE WHEN Amenities IS NULL THEN \'NULLTYPE\' ELSE Amenities END AS Amenities
+                         SquareFeet DECIMAL(8, 2),
+                         Price DECIMAL(9, 2),
+                         WeeklyPrice DECIMAL(10, 2),
+                         MonthlyPrice DECIMAL(11, 2),
+                         SecurityDeposit DECIMAL(9, 2),
+                         CleaningFee DECIMAL(8, 2),
+                         GuestsIncluded INT,
+                         ExtraPeople DECIMAL(8, 2),
+                         MinimumNights INT,
+                         MaximumNights INT,
+                         CalendarUpdated VARCHAR(25),
+                         HasAvailability VARCHAR(1),
+                         Availability30 INT,
+                         Availability60 INT,
+                         Availability90 INT,
+                         Availability365 INT,
+                         CalendarLastScraped DATE,
+                         NumberOfReviews INT,
+                         FirstReview DATE,
+                         LastReview DATE,
+                         ReviewScoresRating INT,
+                         ReviewScoresAccuracy INT,
+                         ReviewScoresCleanliness INT,
+                         ReviewScoresCheckIn INT,
+                         ReviewScoresCommunication INT,
+                         ReviewScoresLocation INT,
+                         ReviewScoresValue INT,
+                         RequiresLicense VARCHAR(1),
+                         License VARCHAR(600),
+                         JurisdictionNames VARCHAR(120),
+                         InstantBookable VARCHAR(1),
+                         CancellationPolicy VARCHAR(25),
+                         RequireGuestProfilePicture VARCHAR(1),
+                         RequireGuestPhoneVerification VARCHAR(1),
+                         RegionID INT,
+                         RegionName VARCHAR(25),
+                         RegionParentID INT,
+                         CalculatedHostListingsCount INT,
+                         ReviewsPerMonth DECIMAL(4, 2)
+                     FROM Listings
+                     LIMIT '
+    listings_rows_temp <- dbSendQuery(abnb_db_slt, paste(listings_sql, format(loop, scientific = FALSE),
+                                                         ', ', format(batch_size, scientific = FALSE), ';',
+                                                         sep = ''))
+    listings_rows <- dbFetch(listings_rows_temp)
+    dbClearResult(listings_rows_temp)
+    
+    # Write results to temp file
+    write.table(listings_rows, file = 'listings_transf.txt', quote = FALSE, sep = '|', row.names = FALSE,
+                col.names = FALSE)
+    
+    # Read results into MySQL from temp file
+    listings_load_stem1 <- 'LOAD DATA LOCAL INFILE \''
+    listings_load_stem2 <- '\' INTO TABLE airbnb.Listings
+                            FIELDS TERMINATED BY \'|\'
+                            LINES TERMINATED BY \'\r\n\'
+                            (Listings_ID, DataScrape_ID, ID, @var1, ScrapeID, @var2, LastScraped, Name, @var3,
+                                @var4, @var5, @var6, @var7, @var8, @var9, @var10, @var11, @var12, @var13,
+                                @var14, PictureURL, @var15, HostID, @var16, HostName, @var17, @var18, @var19,
+                                @var20, @var21, @var22, @var23, @var24, HostPictureURL, @var25, @var26, @var27,
+                                @var28, @var29, @var30, Street, Neighborhood, NeighborhoodCleansed, @var31,
+                                City, State, ZipCode, Market, @var32, @var33, Country, Latitude, Longitude,
+                                IsLocationExact, PropertyType, RoomType, @var34, @var35, @var36, @var37,
+                                BedType, @var38, )
+                            SET
+                                ListingURL = IF(@var1 = \'NULLTYPE\', NULL, @var1)
+                                ,LastSearched = IF(@var2 = \'NULLTYPE\', NULL, @var2)
+                                ,Summary = IF(@var3 = \'NULLTYPE\', NULL, @var3)
+                                ,Space = IF(@var4 = \'NULLTYPE\', NULL, @var4)
+                                ,Description = IF(@var5 = \'NULLTYPE\', NULL, @var5)
+                                ,ExperiencesOffered = IF(@var6 = \'NULLTYPE\', NULL, @var6)
+                                ,NeighborhoodOverview = IF(@var7 = \'NULLTYPE\', NULL, @var7)
+                                ,Notes = IF(@var8 = \'NULLTYPE\', NULL, @var8)
+                                ,Transit = IF(@var9 = \'NULLTYPE\', NULL, @var9)
+                                ,Access = IF(@var10 = \'NULLTYPE\', NULL, @var10)
+                                ,Interaction = IF(@var11 = \'NULLTYPE\', NULL, @var11)
+                                ,HouseRules = IF(@var12 = \'NULLTYPE\', NULL, @var12)
+                                ,ThumbnailURL = IF(@var13 = \'NULLTYPE\', NULL, @var13)
+                                ,MediumURL = IF(@var14 = \'NULLTYPE\', NULL, @var14)
+                                ,XLPictureURL = IF(@var15 = \'NULLTYPE\', NULL, @var15)
+                                ,HostURL = IF(@var16 = \'NULLTYPE\', NULL, @var16)
+                                ,HostSince = IF(@var17 = \'NULLTYPE\', NULL, @var17)
+                                ,HostLocation = IF(@var18 = \'NULLTYPE\', NULL, @var18)
+                                ,HostAbout = IF(@var19 = \'NULLTYPE\', NULL, @var19)
+                                ,HostResponseTime = IF(@var20 = \'NULLTYPE\', NULL, @var20)
+                                ,HostResponseRate = IF(@var21 = \'NULLTYPE\', NULL, @var21)
+                                ,HostAcceptanceRate = IF(@var22 = \'NULLTYPE\', NULL, @var22)
+                                ,HostIsSuperhost = IF(@var23 = \'NULLTYPE\', NULL, @var23)
+                                ,HostThumbnailURL = IF(@var24 = \'NULLTYPE\', NULL, @var24)
+                                ,HostNeighborhood = IF(@var25 = \'NULLTYPE\', NULL, @var25)
+                                ,HostListingsCount = IF(@var26 = \'NULLTYPE\', NULL, @var26)
+                                ,HostTotalListingsCount = IF(@var27 = \'NULLTYPE\', NULL, @var27)
+                                ,HostVerifications = IF(@var28 = \'NULLTYPE\', NULL, @var28)
+                                ,HostHasProfilePic = IF(@var29 = \'NULLTYPE\', NULL, @var29)
+                                ,HostIdentityVerified = IF(@var30 = \'NULLTYPE\', NULL, @var30)
+                                ,NeighborhoodGroupCleansed = IF(@var31 = \'NULLTYPE\', NULL, @var31)
+                                ,SmartLocation = IF(@var32 = \'NULLTYPE\', NULL, @var32)
+                                ,CountryCode = IF(@var33 = \'NULLTYPE\', NULL, @var33)
+                                ,Accommodates = IF(@var34 = \'NULLTYPE\', NULL, @var34)
+                                ,Bathrooms = IF(@var35 = \'NULLTYPE\', NULL, @var35)
+                                ,Bedrooms = IF(@var36 = \'NULLTYPE\', NULL, @var36)
+                                ,Beds = IF(@var37 = \'NULLTYPE\', NULL, @var37)
+                                ,Amenities = IF(@var38 = \'NULLTYPE\', NULL, @var38)
+                                ,;'
+    listings_load <- dbSendStatement(abnb_db_mys, paste(listings_load_stem1, work_dir, listings_load_stem2,
+                                                        sep = ''))
+    dbClearResult(listings_load)
+    
+    loop <- loop + batch_size
+}
+
+# Remove temp file and large objects
+## if (file.exists('listings_transf.txt')) {file.remove('listings_transf.txt')}
+if (exists('listings_rows')) {rm(listings_rows)}
+```
 
 
 
