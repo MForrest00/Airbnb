@@ -819,8 +819,9 @@ if (exists(&#39;calendar_rows&#39;)) {rm(calendar_rows)}</code></pre>
 <pre class="r"><code>loop &lt;- 0
 batch_size &lt;- 100000
 work_dir &lt;- paste(work_dir_stem, &#39;/listings_transf.txt&#39;, sep = &#39;&#39;)
-while (loop &lt; 300000) { ## table_rows[2, 1]
-    # Query Listings table -- replace all characters that might interfere with data transfer and properly label NULLs
+while (loop &lt; 100000) { ## table_rows[2, 1]
+    # Query Listings table
+    # Replace all characters that might interfere with data transfer and properly label NULLs
     listings_sql &lt;- &#39;SELECT
                          Listings_ID
                          ,DataScrape_ID
@@ -832,10 +833,27 @@ while (loop &lt; 300000) { ## table_rows[2, 1]
                              THEN \&#39;NULLTYPE\&#39;
                              ELSE CAST(LastSearched AS TEXT) END AS LastSearched
                          ,LastScraped
-                         ,Name
-                         ,CASE WHEN Summary IS NULL THEN \&#39;NULLTYPE\&#39; ELSE Summary END AS Summary
-                         ,CASE WHEN Space IS NULL THEN \&#39;NULLTYPE\&#39; ELSE Space END AS Space
-                         ,CASE WHEN Description IS NULL THEN \&#39;NULLTYPE\&#39; ELSE Description END AS Description
+                         ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Name, CHAR(9), \&#39; \&#39;),
+                             CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;), CHAR(8), \&#39;\&#39;),
+                             \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) AS Name
+                         ,CASE
+                             WHEN Summary IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Summary,
+                                 CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                                 CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) END AS Summary
+                         ,CASE
+                             WHEN Space IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Space,
+                                 CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                                 CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) END AS Space
+                         ,CASE
+                             WHEN Description IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Description,
+                                 CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                                 CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) END AS Description
                          ,CASE
                              WHEN ExperiencesOffered IS NULL
                              THEN \&#39;NULLTYPE\&#39;
@@ -843,12 +861,40 @@ while (loop &lt; 300000) { ## table_rows[2, 1]
                          ,CASE
                              WHEN NeighborhoodOverview IS NULL
                              THEN \&#39;NULLTYPE\&#39;
-                             ELSE NeighborhoodOverview END AS NeighborhoodOverview
-                         ,CASE WHEN Notes IS NULL THEN \&#39;NULLTYPE\&#39; ELSE Notes END AS Notes
-                         ,CASE WHEN Transit IS NULL THEN \&#39;NULLTYPE\&#39; ELSE Transit END AS Transit
-                         ,CASE WHEN Access IS NULL THEN \&#39;NULLTYPE\&#39; ELSE Access END AS Access
-                         ,CASE WHEN Interaction IS NULL THEN \&#39;NULLTYPE\&#39; ELSE Interaction END AS Interaction
-                         ,CASE WHEN HouseRules IS NULL THEN \&#39;NULLTYPE\&#39; ELSE HouseRules END AS HouseRules
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                                 NeighborhoodOverview, CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;),
+                                 CHAR(13), \&#39; \&#39;), CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) END AS
+                                 NeighborhoodOverview
+                         ,CASE
+                             WHEN Notes IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Notes,
+                                 CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                                 CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) END AS Notes
+                         ,CASE
+                             WHEN Transit IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Transit,
+                                 CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                                 CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) END AS Transit
+                         ,CASE
+                             WHEN Access IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Access,
+                                 CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                                 CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) END AS Access
+                         ,CASE
+                             WHEN Interaction IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Interaction,
+                                 CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                                 CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) END AS Interaction
+                         ,CASE
+                             WHEN HouseRules IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(HouseRules,
+                                 CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                                 CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) END AS HouseRules
                          ,CASE
                              WHEN ThumbnailURL IS NULL
                              THEN \&#39;NULLTYPE\&#39;
@@ -861,7 +907,9 @@ while (loop &lt; 300000) { ## table_rows[2, 1]
                              ELSE XLPictureURL END AS XLPictureURL
                          ,HostID
                          ,CASE WHEN HostURL IS NULL THEN \&#39;NULLTYPE\&#39; ELSE HostURL END AS HostURL
-                         ,HostName
+                         ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(HostName, CHAR(9), \&#39; \&#39;),
+                             CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;), CHAR(8), \&#39;\&#39;),
+                             \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) AS HostName
                          ,CASE
                              WHEN HostSince = \&#39;\&#39;
                              THEN \&#39;NULLTYPE\&#39;
@@ -869,8 +917,15 @@ while (loop &lt; 300000) { ## table_rows[2, 1]
                          ,CASE
                              WHEN HostLocation IS NULL
                              THEN \&#39;NULLTYPE\&#39;
-                             ELSE HostLocation END AS HostLocation
-                         ,CASE WHEN HostAbout IS NULL THEN \&#39;NULLTYPE\&#39; ELSE HostAbout END AS HostAbout
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(HostLocation,
+                                 CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                                 CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) END AS HostLocation
+                         ,CASE
+                             WHEN HostAbout IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(HostAbout,
+                                 CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                                 CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) END AS HostAbout
                          ,CASE
                              WHEN HostResponseTime IS NULL
                              THEN \&#39;NULLTYPE\&#39;
@@ -916,21 +971,33 @@ while (loop &lt; 300000) { ## table_rows[2, 1]
                              WHEN HostIdentityVerified IS NULL
                              THEN \&#39;NULLTYPE\&#39;
                              ELSE HostIdentityVerified END AS HostIdentityVerified
-                         ,Street
+                         ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Street, CHAR(9), \&#39; \&#39;),
+                             CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;), CHAR(8), \&#39;\&#39;),
+                             \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) AS Street
                          ,Neighborhood
                          ,NeighborhoodCleansed
                          ,CASE
                              WHEN NeighborhoodGroupCleansed IS NULL
                              THEN \&#39;NULLTYPE\&#39;
                              ELSE NeighborhoodGroupCleansed END AS NeighborhoodGroupCleansed
-                         ,City
-                         ,State
-                         ,ZipCode
-                         ,Market
+                         ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(City, CHAR(9), \&#39; \&#39;),
+                             CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;), CHAR(8), \&#39;\&#39;),
+                             \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) AS City
+                         ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(State, CHAR(9), \&#39; \&#39;),
+                             CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;), CHAR(8), \&#39;\&#39;),
+                             \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) AS State
+                         ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(ZipCode, CHAR(9), \&#39; \&#39;),
+                             CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;), CHAR(8), \&#39;\&#39;),
+                             \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) AS ZipCode
+                         ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Market, CHAR(9), \&#39; \&#39;),
+                             CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;), CHAR(8), \&#39;\&#39;),
+                             \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) AS Market
                          ,CASE
                              WHEN SmartLocation IS NULL
                              THEN \&#39;NULLTYPE\&#39;
-                             ELSE SmartLocation END AS SmartLocation
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(SmartLocation,
+                                 CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                                 CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) END AS SmartLocation
                          ,CASE WHEN CountryCode IS NULL THEN \&#39;NULLTYPE\&#39; ELSE CountryCode END AS CountryCode
                          ,Country
                          ,Latitude
@@ -953,45 +1020,138 @@ while (loop &lt; 300000) { ## table_rows[2, 1]
                          ,CASE WHEN Beds = \&#39;\&#39; THEN \&#39;NULLTYPE\&#39; ELSE CAST(Beds AS TEXT) END AS Beds
                          ,BedType
                          ,CASE WHEN Amenities IS NULL THEN \&#39;NULLTYPE\&#39; ELSE Amenities END AS Amenities
-                         SquareFeet DECIMAL(8, 2),
-                         Price DECIMAL(9, 2),
-                         WeeklyPrice DECIMAL(10, 2),
-                         MonthlyPrice DECIMAL(11, 2),
-                         SecurityDeposit DECIMAL(9, 2),
-                         CleaningFee DECIMAL(8, 2),
-                         GuestsIncluded INT,
-                         ExtraPeople DECIMAL(8, 2),
-                         MinimumNights INT,
-                         MaximumNights INT,
-                         CalendarUpdated VARCHAR(25),
-                         HasAvailability VARCHAR(1),
-                         Availability30 INT,
-                         Availability60 INT,
-                         Availability90 INT,
-                         Availability365 INT,
-                         CalendarLastScraped DATE,
-                         NumberOfReviews INT,
-                         FirstReview DATE,
-                         LastReview DATE,
-                         ReviewScoresRating INT,
-                         ReviewScoresAccuracy INT,
-                         ReviewScoresCleanliness INT,
-                         ReviewScoresCheckIn INT,
-                         ReviewScoresCommunication INT,
-                         ReviewScoresLocation INT,
-                         ReviewScoresValue INT,
-                         RequiresLicense VARCHAR(1),
-                         License VARCHAR(600),
-                         JurisdictionNames VARCHAR(120),
-                         InstantBookable VARCHAR(1),
-                         CancellationPolicy VARCHAR(25),
-                         RequireGuestProfilePicture VARCHAR(1),
-                         RequireGuestPhoneVerification VARCHAR(1),
-                         RegionID INT,
-                         RegionName VARCHAR(25),
-                         RegionParentID INT,
-                         CalculatedHostListingsCount INT,
-                         ReviewsPerMonth DECIMAL(4, 2)
+                         ,CASE
+                             WHEN SquareFeet = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(SquareFeet AS TEXT) END AS SquareFeet
+                         ,Price
+                         ,CASE
+                             WHEN WeeklyPrice = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(WeeklyPrice AS TEXT) END AS WeeklyPrice
+                         ,CASE
+                             WHEN MonthlyPrice = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(MonthlyPrice AS TEXT) END AS MonthlyPrice
+                         ,CASE
+                             WHEN SecurityDeposit IS NULL OR SecurityDeposit = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(SecurityDeposit AS TEXT) END AS SecurityDeposit
+                         ,CASE
+                             WHEN CleaningFee IS NULL OR CleaningFee = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(CleaningFee AS TEXT) END AS CleaningFee
+                         ,GuestsIncluded
+                         ,ExtraPeople
+                         ,MinimumNights
+                         ,MaximumNights
+                         ,CalendarUpdated
+                         ,CASE
+                             WHEN HasAvailability IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE HasAvailability END AS HasAvailability
+                         ,CASE
+                             WHEN Availability30 = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(Availability30 AS TEXT) END AS Availability30
+                         ,CASE
+                             WHEN Availability60 = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(Availability60 AS TEXT) END AS Availability60
+                         ,CASE
+                             WHEN Availability90 = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(Availability90 AS TEXT) END AS Availability90
+                         ,CASE
+                             WHEN Availability365 = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(Availability365 AS TEXT) END AS Availability365
+                         ,CalendarLastScraped
+                         ,NumberOfReviews
+                         ,CASE
+                             WHEN FirstReview = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(FirstReview AS TEXT) END AS FirstReview
+                         ,CASE
+                             WHEN LastReview = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(LastReview AS TEXT) END AS LastReview
+                         ,CASE
+                             WHEN ReviewScoresRating = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(ReviewScoresRating AS TEXT) END AS ReviewScoresRating
+                         ,CASE
+                             WHEN ReviewScoresAccuracy = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(ReviewScoresAccuracy AS TEXT) END AS ReviewScoresAccuracy
+                         ,CASE
+                             WHEN ReviewScoresCleanliness = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(ReviewScoresCleanliness AS TEXT) END AS ReviewScoresCleanliness
+                         ,CASE
+                             WHEN ReviewScoresCheckIn = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(ReviewScoresCheckIn AS TEXT) END AS ReviewScoresCheckIn
+                         ,CASE
+                             WHEN ReviewScoresCommunication = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(ReviewScoresCommunication AS TEXT) END AS ReviewScoresCommunication
+                         ,CASE
+                             WHEN ReviewScoresLocation = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(ReviewScoresLocation AS TEXT) END AS ReviewScoresLocation
+                         ,CASE
+                             WHEN ReviewScoresValue = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(ReviewScoresValue AS TEXT) END AS ReviewScoresValue
+                         ,CASE
+                             WHEN RequiresLicense IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE RequiresLicense END AS RequiresLicense
+                         ,CASE
+                             WHEN License IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE License END AS License
+                         ,CASE
+                             WHEN JurisdictionNames IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE JurisdictionNames END AS JurisdictionNames
+                         ,CASE
+                             WHEN InstantBookable IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE InstantBookable END AS InstantBookable
+                         ,CASE
+                             WHEN CancellationPolicy IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CancellationPolicy END AS CancellationPolicy
+                         ,CASE
+                             WHEN RequireGuestProfilePicture IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE RequireGuestProfilePicture END AS RequireGuestProfilePicture
+                         ,CASE
+                             WHEN RequireGuestPhoneVerification IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE RequireGuestPhoneVerification END AS RequireGuestPhoneVerification
+                         ,CASE
+                             WHEN RegionID IS NULL OR RegionID = \&#39;GB.MN\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(RegionID AS TEXT) END AS RegionID
+                         ,CASE
+                             WHEN RegionName IS NULL
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE RegionName END AS RegionName
+                         ,CASE
+                             WHEN RegionParentID IS NULL OR RegionParentID = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(RegionParentID AS TEXT) END AS RegionParentID
+                         ,CASE
+                             WHEN CalculatedHostListingsCount IS NULL OR CalculatedHostListingsCount = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(CalculatedHostListingsCount AS TEXT) END AS CalculatedHostListingsCount
+                         ,CASE
+                             WHEN ReviewsPerMonth IS NULL OR ReviewsPerMonth = \&#39;\&#39;
+                             THEN \&#39;NULLTYPE\&#39;
+                             ELSE CAST(ReviewsPerMonth AS TEXT) END AS ReviewsPerMonth
                      FROM Listings
                      LIMIT &#39;
     listings_rows_temp &lt;- dbSendQuery(abnb_db_slt, paste(listings_sql, format(loop, scientific = FALSE),
@@ -1016,7 +1176,11 @@ while (loop &lt; 300000) { ## table_rows[2, 1]
                                 @var28, @var29, @var30, Street, Neighborhood, NeighborhoodCleansed, @var31,
                                 City, State, ZipCode, Market, @var32, @var33, Country, Latitude, Longitude,
                                 IsLocationExact, PropertyType, RoomType, @var34, @var35, @var36, @var37,
-                                BedType, @var38, )
+                                BedType, @var38, @var39, Price, @var40, @var41, @var42, @var43, GuestsIncluded,
+                                ExtraPeople, MinimumNights, MaximumNights, CalendarUpdated, @var44, @var45,
+                                @var46, @var47, @var48, CalendarLastScraped, NumberOfReviews, @var49, @var50,
+                                @var51, @var52, @var53, @var54, @var55, @var56, @var57, @var58, @var59, @var60,
+                                @var61, @var62, @var63, @var64, @var65, @var66, @var67, @var68, @var69)
                             SET
                                 ListingURL = IF(@var1 = \&#39;NULLTYPE\&#39;, NULL, @var1)
                                 ,LastSearched = IF(@var2 = \&#39;NULLTYPE\&#39;, NULL, @var2)
@@ -1056,10 +1220,40 @@ while (loop &lt; 300000) { ## table_rows[2, 1]
                                 ,Bedrooms = IF(@var36 = \&#39;NULLTYPE\&#39;, NULL, @var36)
                                 ,Beds = IF(@var37 = \&#39;NULLTYPE\&#39;, NULL, @var37)
                                 ,Amenities = IF(@var38 = \&#39;NULLTYPE\&#39;, NULL, @var38)
-                                ,;&#39;
-    listings_load &lt;- dbSendStatement(abnb_db_mys, paste(listings_load_stem1, work_dir, listings_load_stem2,
-                                                        sep = &#39;&#39;))
-    dbClearResult(listings_load)
+                                ,SquareFeet = IF(@var39 = \&#39;NULLTYPE\&#39;, NULL, @var39)
+                                ,WeeklyPrice = IF(@var40 = \&#39;NULLTYPE\&#39;, NULL, @var40)
+                                ,MonthlyPrice = IF(@var41 = \&#39;NULLTYPE\&#39;, NULL, @var41)
+                                ,SecurityDeposit = IF(@var42 = \&#39;NULLTYPE\&#39;, NULL, @var42)
+                                ,CleaningFee = IF(@var43 = \&#39;NULLTYPE\&#39;, NULL, @var43)
+                                ,HasAvailability = IF(@var44 = \&#39;NULLTYPE\&#39;, NULL, @var44)
+                                ,Availability30 = IF(@var45 = \&#39;NULLTYPE\&#39;, NULL, @var45)
+                                ,Availability60 = IF(@var46 = \&#39;NULLTYPE\&#39;, NULL, @var46)
+                                ,Availability90 = IF(@var47 = \&#39;NULLTYPE\&#39;, NULL, @var47)
+                                ,Availability365 = IF(@var48 = \&#39;NULLTYPE\&#39;, NULL, @var48)
+                                ,FirstReview = IF(@var49 = \&#39;NULLTYPE\&#39;, NULL, @var49)
+                                ,LastReview = IF(@var50 = \&#39;NULLTYPE\&#39;, NULL, @var50)
+                                ,ReviewScoresRating = IF(@var51 = \&#39;NULLTYPE\&#39;, NULL, @var51)
+                                ,ReviewScoresAccuracy = IF(@var52 = \&#39;NULLTYPE\&#39;, NULL, @var52)
+                                ,ReviewScoresCleanliness = IF(@var53 = \&#39;NULLTYPE\&#39;, NULL, @var53)
+                                ,ReviewScoresCheckIn = IF(@var54 = \&#39;NULLTYPE\&#39;, NULL, @var54)
+                                ,ReviewScoresCommunication = IF(@var55 = \&#39;NULLTYPE\&#39;, NULL, @var55)
+                                ,ReviewScoresLocation = IF(@var56 = \&#39;NULLTYPE\&#39;, NULL, @var56)
+                                ,ReviewScoresValue = IF(@var57 = \&#39;NULLTYPE\&#39;, NULL, @var57)
+                                ,RequiresLicense = IF(@var58 = \&#39;NULLTYPE\&#39;, NULL, @var58)
+                                ,License = IF(@var59 = \&#39;NULLTYPE\&#39;, NULL, @var59)
+                                ,JurisdictionNames = IF(@var60 = \&#39;NULLTYPE\&#39;, NULL, @var60)
+                                ,InstantBookable = IF(@var61 = \&#39;NULLTYPE\&#39;, NULL, @var61)
+                                ,CancellationPolicy = IF(@var62 = \&#39;NULLTYPE\&#39;, NULL, @var62)
+                                ,RequireGuestProfilePicture = IF(@var63 = \&#39;NULLTYPE\&#39;, NULL, @var63)
+                                ,RequireGuestPhoneVerification = IF(@var64 = \&#39;NULLTYPE\&#39;, NULL, @var64)
+                                ,RegionID = IF(@var65 = \&#39;NULLTYPE\&#39;, NULL, @var65)
+                                ,RegionName = IF(@var66 = \&#39;NULLTYPE\&#39;, NULL, @var66)
+                                ,RegionParentID = IF(@var67 = \&#39;NULLTYPE\&#39;, NULL, @var67)
+                                ,CalculatedHostListingsCount = IF(@var68 = \&#39;NULLTYPE\&#39;, NULL, @var68)
+                                ,ReviewsPerMonth = IF(@var69 = \&#39;NULLTYPE\&#39;, NULL, @var69);&#39;
+    ## listings_load &lt;- dbSendStatement(abnb_db_mys, paste(listings_load_stem1, work_dir, listings_load_stem2,
+    ##                                                     sep = &#39;&#39;))
+    ## dbClearResult(listings_load)
     
     loop &lt;- loop + batch_size
 }
@@ -1132,6 +1326,46 @@ dbClearResult(scrape_load)
 
 # Remove temp file
 if (file.exists(&#39;scrape_transf.txt&#39;)) {file.remove(&#39;scrape_transf.txt&#39;)}</code></pre>
+<p><strong>Optional:</strong> Create database indices for faster querying<br />
+MySQL has no CREATE INDEX IF NOT EXISTS functionality, so do not run this code chunk if the indices already exists.</p>
+<pre class="r"><code># Data scrape ID indices
+idx_datascrape_id &lt;- &#39;CREATE INDEX idx_DataScrape_ID ON Map_DataScrape (
+                          DataScrape_ID
+                      );
+                      &#39;
+dbExecute(abnb_db_mys, idx_datascrape_id)
+idx_datascrape_id_cal &lt;- &#39;CREATE INDEX idx_DataScrape_ID_cal ON Calendar (
+                              DataScrape_ID
+                          );
+                          &#39;
+dbExecute(abnb_db_mys, idx_datascrape_id_cal)
+idx_datascrape_id_lst &lt;- &#39;CREATE INDEX idx_DataScrape_ID_lst ON Listings (
+                              DataScrape_ID
+                          );
+                          &#39;
+dbExecute(abnb_db_mys, idx_datascrape_id_lst)
+idx_datascrape_id_rvw &lt;- &#39;CREATE INDEX idx_DataScrape_ID_rvw ON Reviews (
+                              DataScrape_ID
+                          );
+                          &#39;
+dbExecute(abnb_db_mys, idx_datascrape_id_rvw)
+
+# Listing ID indices
+idx_listing_id_cal &lt;- &#39;CREATE INDEX idx_Listing_ID_cal ON Calendar (
+                           ListingID
+                       );
+                       &#39;
+dbExecute(abnb_db_mys, idx_listing_id_cal)
+idx_listing_id_lst &lt;- &#39;CREATE INDEX idx_Listing_ID_lst ON Listings (
+                           ID
+                       );
+                       &#39;
+dbExecute(abnb_db_mys, idx_listing_id_lst)
+idx_listing_id_rvw &lt;- &#39;CREATE INDEX idx_Listing_ID_rvw ON Reviews (
+                           ListingID
+                       );
+                       &#39;
+dbExecute(abnb_db_mys, idx_listing_id_rvw)</code></pre>
 <p>Disconnect from the SQLite and MySQL databases</p>
 <pre class="r"><code># Disconnect from SQLite database
 dbDisconnect(abnb_db_slt)
