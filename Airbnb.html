@@ -124,6 +124,28 @@ $(document).ready(function () {
 <div id="summary" class="section level3">
 <h3>Summary</h3>
 </div>
+<div id="r-environment-information" class="section level3">
+<h3>R Environment Information</h3>
+<pre class="r"><code># R and system environment information
+sys_env &lt;- t(as.data.frame(R.Version()))
+colnames(sys_env) &lt;- c(&#39;Value&#39;)
+sys_env</code></pre>
+<pre><code>               Value                         
+platform       &quot;x86_64-w64-mingw32&quot;          
+arch           &quot;x86_64&quot;                      
+os             &quot;mingw32&quot;                     
+system         &quot;x86_64, mingw32&quot;             
+status         &quot;&quot;                            
+major          &quot;3&quot;                           
+minor          &quot;3.2&quot;                         
+year           &quot;2016&quot;                        
+month          &quot;10&quot;                          
+day            &quot;31&quot;                          
+svn.rev        &quot;71607&quot;                       
+language       &quot;R&quot;                           
+version.string &quot;R version 3.3.2 (2016-10-31)&quot;
+nickname       &quot;Sincere Pumpkin Patch&quot;       </code></pre>
+</div>
 <div id="data-processing-overview-and-sqlite-data-transfer" class="section level3">
 <h3>Data Processing (Overview and SQLite Data Transfer)</h3>
 <p>Investigate directory structure of data folder, and create scrape metadata from folder names</p>
@@ -605,8 +627,7 @@ calendar_create &lt;- &#39;CREATE TABLE IF NOT EXISTS airbnb.Calendar (
                         Date DATE NOT NULL,
                         Available VARCHAR(1) NOT NULL,
                         Price DECIMAL(9, 2),
-                        PRIMARY KEY (Calendar_ID),
-                        UNIQUE INDEX Calendar_ID_UNIQUE (Calendar_ID ASC)
+                        PRIMARY KEY (Calendar_ID)
                     );
                     &#39;
 dbExecute(abnb_db_mys, calendar_create)
@@ -712,8 +733,7 @@ listings_create &lt;- &#39;CREATE TABLE IF NOT EXISTS airbnb.Listings (
                         RegionParentID INT,
                         CalculatedHostListingsCount INT,
                         ReviewsPerMonth DECIMAL(4, 2),
-                        PRIMARY KEY (Listings_ID),
-                        UNIQUE INDEX Listings_ID_UNIQUE (Listings_ID ASC)
+                        PRIMARY KEY (Listings_ID)
                     );
                     &#39;
 dbExecute(abnb_db_mys, listings_create)
@@ -726,8 +746,7 @@ reviews_create &lt;- &#39;CREATE TABLE IF NOT EXISTS airbnb.Reviews (
                        ReviewerID INT NOT NULL,
                        ReviewerName VARCHAR(300) NOT NULL,
                        Comments VARCHAR(14000) NOT NULL,
-                       PRIMARY KEY (Reviews_ID),
-                       UNIQUE INDEX Reviews_ID_UNIQUE (Reviews_ID ASC)
+                       PRIMARY KEY (Reviews_ID)
                    );
                    &#39;
 dbExecute(abnb_db_mys, reviews_create)
@@ -737,8 +756,7 @@ map_data_create &lt;- &#39;CREATE TABLE IF NOT EXISTS airbnb.Map_DataScrape (
                         State VARCHAR(35) NOT NULL,
                         City VARCHAR(25) NOT NULL,
                         DataScrapeDate DATE NOT NULL,
-                        PRIMARY KEY (DataScrape_ID),
-                        UNIQUE INDEX DataScrape_ID_UNIQUE (DataScrape_ID ASC)
+                        PRIMARY KEY (DataScrape_ID)
                     );
                     &#39;
 dbExecute(abnb_db_mys, map_data_create)</code></pre>
@@ -773,10 +791,10 @@ table_rows</code></pre>
 Calendar 702590690
 Listings   1924970
 Reviews   25220866</code></pre>
-<p>Because the Calendar table is narrow, we can transfer it in batches of half a million. The wider Listings and Reviews tables will be transferred in batches of 100,000.</p>
+<p>Because the Calendar table is narrow, we can transfer it in batches of five million. The Reviews table can be transferred in batches of half a million. The wider Listings table will be transferred in batches of 100,000.</p>
 <pre class="r"><code>work_dir_stem &lt;- getwd()</code></pre>
 <pre class="r"><code>loop &lt;- 0
-batch_size &lt;- 500000
+batch_size &lt;- 5000000
 work_dir &lt;- paste(work_dir_stem, &#39;/calendar_transf.txt&#39;, sep = &#39;&#39;)
 while (loop &lt; table_rows[1, 1]) {
     # Query Calendar table
@@ -819,7 +837,7 @@ if (exists(&#39;calendar_rows&#39;)) {rm(calendar_rows)}</code></pre>
 <pre class="r"><code>loop &lt;- 0
 batch_size &lt;- 100000
 work_dir &lt;- paste(work_dir_stem, &#39;/listings_transf.txt&#39;, sep = &#39;&#39;)
-while (loop &lt; 100000) { ## table_rows[2, 1]
+while (loop &lt; table_rows[2, 1]) {
     # Query Listings table
     # Replace all characters that might interfere with data transfer and properly label NULLs
     listings_sql &lt;- &#39;SELECT
@@ -1251,18 +1269,18 @@ while (loop &lt; 100000) { ## table_rows[2, 1]
                                 ,RegionParentID = IF(@var67 = \&#39;NULLTYPE\&#39;, NULL, @var67)
                                 ,CalculatedHostListingsCount = IF(@var68 = \&#39;NULLTYPE\&#39;, NULL, @var68)
                                 ,ReviewsPerMonth = IF(@var69 = \&#39;NULLTYPE\&#39;, NULL, @var69);&#39;
-    ## listings_load &lt;- dbSendStatement(abnb_db_mys, paste(listings_load_stem1, work_dir, listings_load_stem2,
-    ##                                                     sep = &#39;&#39;))
-    ## dbClearResult(listings_load)
+    listings_load &lt;- dbSendStatement(abnb_db_mys, paste(listings_load_stem1, work_dir, listings_load_stem2,
+                                                        sep = &#39;&#39;))
+    dbClearResult(listings_load)
     
     loop &lt;- loop + batch_size
 }
 
 # Remove temp file and large objects
-## if (file.exists(&#39;listings_transf.txt&#39;)) {file.remove(&#39;listings_transf.txt&#39;)}
+if (file.exists(&#39;listings_transf.txt&#39;)) {file.remove(&#39;listings_transf.txt&#39;)}
 if (exists(&#39;listings_rows&#39;)) {rm(listings_rows)}</code></pre>
 <pre class="r"><code>loop &lt;- 0
-batch_size &lt;- 100000
+batch_size &lt;- 500000
 work_dir &lt;- paste(work_dir_stem, &#39;/reviews_transf.txt&#39;, sep = &#39;&#39;)
 while (loop &lt; table_rows[3, 1]) {
     # Query Reviews table -- replace all characters that might interfere with data transfer

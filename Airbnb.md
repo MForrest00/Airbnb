@@ -3,6 +3,34 @@
 
 ### Summary
 
+### R Environment Information
+
+
+```r
+# R and system environment information
+sys_env <- t(as.data.frame(R.Version()))
+colnames(sys_env) <- c('Value')
+sys_env
+```
+
+```
+               Value                         
+platform       "x86_64-w64-mingw32"          
+arch           "x86_64"                      
+os             "mingw32"                     
+system         "x86_64, mingw32"             
+status         ""                            
+major          "3"                           
+minor          "3.2"                         
+year           "2016"                        
+month          "10"                          
+day            "31"                          
+svn.rev        "71607"                       
+language       "R"                           
+version.string "R version 3.3.2 (2016-10-31)"
+nickname       "Sincere Pumpkin Patch"       
+```
+
 ### Data Processing (Overview and SQLite Data Transfer)
 
 Investigate directory structure of data folder, and create scrape metadata from folder names
@@ -570,8 +598,7 @@ calendar_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Calendar (
                         Date DATE NOT NULL,
                         Available VARCHAR(1) NOT NULL,
                         Price DECIMAL(9, 2),
-                        PRIMARY KEY (Calendar_ID),
-                        UNIQUE INDEX Calendar_ID_UNIQUE (Calendar_ID ASC)
+                        PRIMARY KEY (Calendar_ID)
                     );
                     '
 dbExecute(abnb_db_mys, calendar_create)
@@ -677,8 +704,7 @@ listings_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Listings (
                         RegionParentID INT,
                         CalculatedHostListingsCount INT,
                         ReviewsPerMonth DECIMAL(4, 2),
-                        PRIMARY KEY (Listings_ID),
-                        UNIQUE INDEX Listings_ID_UNIQUE (Listings_ID ASC)
+                        PRIMARY KEY (Listings_ID)
                     );
                     '
 dbExecute(abnb_db_mys, listings_create)
@@ -691,8 +717,7 @@ reviews_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Reviews (
                        ReviewerID INT NOT NULL,
                        ReviewerName VARCHAR(300) NOT NULL,
                        Comments VARCHAR(14000) NOT NULL,
-                       PRIMARY KEY (Reviews_ID),
-                       UNIQUE INDEX Reviews_ID_UNIQUE (Reviews_ID ASC)
+                       PRIMARY KEY (Reviews_ID)
                    );
                    '
 dbExecute(abnb_db_mys, reviews_create)
@@ -702,8 +727,7 @@ map_data_create <- 'CREATE TABLE IF NOT EXISTS airbnb.Map_DataScrape (
                         State VARCHAR(35) NOT NULL,
                         City VARCHAR(25) NOT NULL,
                         DataScrapeDate DATE NOT NULL,
-                        PRIMARY KEY (DataScrape_ID),
-                        UNIQUE INDEX DataScrape_ID_UNIQUE (DataScrape_ID ASC)
+                        PRIMARY KEY (DataScrape_ID)
                     );
                     '
 dbExecute(abnb_db_mys, map_data_create)
@@ -758,7 +782,7 @@ Listings   1924970
 Reviews   25220866
 ```
 
-Because the Calendar table is narrow, we can transfer it in batches of half a million. The wider Listings and Reviews tables will be transferred in batches of 100,000.
+Because the Calendar table is narrow, we can transfer it in batches of five million. The Reviews table can be transferred in batches of half a million. The wider Listings table will be transferred in batches of 100,000.
 
 
 ```r
@@ -768,7 +792,7 @@ work_dir_stem <- getwd()
 
 ```r
 loop <- 0
-batch_size <- 500000
+batch_size <- 5000000
 work_dir <- paste(work_dir_stem, '/calendar_transf.txt', sep = '')
 while (loop < table_rows[1, 1]) {
     # Query Calendar table
@@ -815,7 +839,7 @@ if (exists('calendar_rows')) {rm(calendar_rows)}
 loop <- 0
 batch_size <- 100000
 work_dir <- paste(work_dir_stem, '/listings_transf.txt', sep = '')
-while (loop < 100000) { ## table_rows[2, 1]
+while (loop < table_rows[2, 1]) {
     # Query Listings table
     # Replace all characters that might interfere with data transfer and properly label NULLs
     listings_sql <- 'SELECT
@@ -1247,22 +1271,22 @@ while (loop < 100000) { ## table_rows[2, 1]
                                 ,RegionParentID = IF(@var67 = \'NULLTYPE\', NULL, @var67)
                                 ,CalculatedHostListingsCount = IF(@var68 = \'NULLTYPE\', NULL, @var68)
                                 ,ReviewsPerMonth = IF(@var69 = \'NULLTYPE\', NULL, @var69);'
-    ## listings_load <- dbSendStatement(abnb_db_mys, paste(listings_load_stem1, work_dir, listings_load_stem2,
-    ##                                                     sep = ''))
-    ## dbClearResult(listings_load)
+    listings_load <- dbSendStatement(abnb_db_mys, paste(listings_load_stem1, work_dir, listings_load_stem2,
+                                                        sep = ''))
+    dbClearResult(listings_load)
     
     loop <- loop + batch_size
 }
 
 # Remove temp file and large objects
-## if (file.exists('listings_transf.txt')) {file.remove('listings_transf.txt')}
+if (file.exists('listings_transf.txt')) {file.remove('listings_transf.txt')}
 if (exists('listings_rows')) {rm(listings_rows)}
 ```
 
 
 ```r
 loop <- 0
-batch_size <- 100000
+batch_size <- 500000
 work_dir <- paste(work_dir_stem, '/reviews_transf.txt', sep = '')
 while (loop < table_rows[3, 1]) {
     # Query Reviews table -- replace all characters that might interfere with data transfer
