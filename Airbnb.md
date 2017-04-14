@@ -1405,9 +1405,66 @@ Disconnect from the SQLite and MySQL databases
 
 
 ```r
-# Disconnect from SQLite database
+# Disconnect from SQLite and MySQL databases
 dbDisconnect(abnb_db_slt)
 dbDisconnect(abnb_db_mys)
 ```
 
 ### Analysis
+
+Before beginning the analysis, we must consider some facts about the data and assumptions required to calculate unavailable metrics.
+
+**Data information**
+
+1. Data utilizes public information compiled from the Airbnb website (hosted on the [Inside Airbnb](http://insideairbnb.com/) website).
+2. Location information for listings is anonymized, meaning that locations in the Listings table will be within 0-450 feet of the actual address.
+3. Listings can be deleted from Airbnb. Each data scrape presents the listings at the time that the data scrape was performed.
+4. The Airbnb calendar does not differentiate between a booked night and an unavailable night.
+5. Table descriptions:
+    + Calendar - includes data scrape ID, listing ID, date, availability flag, and price
+    + Listings - includes data scrape ID, listing ID, name, summary, space, description, host information, approximate location (latitude and longitude), property type, room type, bathroom count, bedroom count, bed type, amenities, price information, average review scores, minimum/maximum nights, availability information, average review scores by category, booking information, cancellation policy, and several other fields
+    + Reviews - includes data scrape ID, listing ID, date, reviewer ID, and full text review
+
+**Occupancy models**
+
+1. Occupancy is not available in this data. Occupancy must be estimated using the volume of reviews for a specific property. Occupancy is estimated using a model where 50% of stays result in a review. This model is based off of three proposed models.
+    + 72% of stays result in a review, proposed by Alex Marqusee and attributed to Airbnb's CEO and co-founder Brian Chesky
+    + 30.5% of stays result in a review, introduced as a higher impact model (in combination with the 72% model) by the Budget and Legislative Analyst's Office and based on comparing public data of reviews to The New York Attorney General's report on Airbnb released in October 2014
+    + 50% of stays result in a review, proposed as a middle ground by Inside Airbnb
+2. The occupancy rate is capped at 70%, a relatively high but reasonable number for a highly occupied hotel. This measure ensures that the occupancy model remains conservative and controls for Airbnb listings with a very high review rate.
+
+**Average length of stay models**
+
+1. San Francisco uses 5.5 nights as the average length of stay, a value reported by Airbnb.
+2. An average of 3 nights is used for all other locations.
+3. If a listing has higher minimum nights that the average length of stay, the minimum nights for that listing is used instead.
+
+Because of the size of the data source, pre-aggregated data was generally retrieved from the web server through SQL queries. This data was then written to RData files to enable Tableau reporting off of the data (in addition to the visualizations created through the ggplot2 package).
+
+
+```r
+library(RMySQL)
+library(DBI)
+library(dplyr)
+library(ggplot2)
+```
+
+
+```r
+# Load MySQL server address and log-in credentials (replace with your server address and log-in credentials)
+mysql_server_address <- readLines('C:/Credentials/AWS MySQL Airbnb Database/serverAddress.txt')
+mysql_user_name <- readLines('C:/Credentials/AWS MySQL Airbnb Database/userName.txt')
+mysql_password <- readLines('C:/Credentials/AWS MySQL Airbnb Database/password.txt')
+
+# Connect to MySQL database -- this instance has been launched with a database named 'airbnb'
+abnb_db <- dbConnect(MySQL(), dbname = 'airbnb', username = mysql_user_name, password = mysql_password,
+                     host = mysql_server_address)
+```
+
+
+
+
+```r
+# Disconnect from MySQL database
+dbDisconnect(abnb_db)
+```
