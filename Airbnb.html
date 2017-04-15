@@ -119,13 +119,22 @@ $(document).ready(function () {
 </div>
 
 
-<div id="airbnb-analysis" class="section level2">
-<h2>Airbnb Analysis</h2>
-<div id="summary" class="section level3">
-<h3>Summary</h3>
+<div id="airbnb-analysis" class="section level1">
+<h1>Airbnb Analysis</h1>
+<div id="toc" class="section level2">
+<h2>Table of Contents</h2>
+<ol style="list-style-type: decimal">
+<li><a href="#environment">R Environment Information</a></li>
+<li><a href="#sqlite">Data Processing I: SQLite</a></li>
+<li><a href="#mysql">Data Processing II: MySQL Web Server</a></li>
+<li><a href="#analysis">Analysis</a></li>
+</ol>
 </div>
-<div id="r-environment-information" class="section level3">
-<h3>R Environment Information</h3>
+<div id="summary" class="section level2">
+<h2>Summary</h2>
+</div>
+<div id="environment" class="section level2">
+<h2>R Environment Information</h2>
 <pre class="r"><code># R and system environment information
 sys_env &lt;- t(as.data.frame(R.Version()))
 colnames(sys_env) &lt;- c(&#39;Value&#39;)
@@ -146,8 +155,8 @@ language       &quot;R&quot;
 version.string &quot;R version 3.3.2 (2016-10-31)&quot;
 nickname       &quot;Sincere Pumpkin Patch&quot;       </code></pre>
 </div>
-<div id="data-processing-overview-and-sqlite-data-transfer" class="section level3">
-<h3>Data Processing (Overview and SQLite Data Transfer)</h3>
+<div id="sqlite" class="section level2">
+<h2>Data Processing (Overview and SQLite Data Transfer)</h2>
 <p>Investigate directory structure of data folder, and create scrape metadata from folder names</p>
 <pre class="r"><code># Directory for data folder
 data_directory &lt;- &#39;C:/Airbnb&#39;
@@ -584,8 +593,8 @@ dbExecute(abnb_db, idx_listing_id_rvw)</code></pre>
 <pre class="r"><code># Disconnect from SQLite database
 dbDisconnect(abnb_db)</code></pre>
 </div>
-<div id="data-processing-aws-mysql-rds-instance-data-transfer" class="section level3">
-<h3>Data Processing (AWS MySQL RDS Instance Data Transfer)</h3>
+<div id="mysql" class="section level2">
+<h2>Data Processing (AWS MySQL RDS Instance Data Transfer)</h2>
 <p>Although merging all bz files into a SQLite database with the proper metadata enables significantly streamlined analysis, this approach towards data management carries significant downsides. The data takes up a large amount of space and is stored twice on disk (once in the assortment of gz files and once in the SQLite database). The analysis is limited by the processing power and memory of the user’s computer. Finally, the SQLite database is serverless and therefore must be transferred to another user’s computer in order to facilitate data sharing.</p>
 <p>Transferring the data to a server-based RDBMS solves these problems. Below, the data from the SQLite database will be moved to a MySQL server on an AWS RDS instance owned by the analysis author. There is no need for the SQLite database to server as an intermediary, however. In this analysis, the data will be moved out of the SQLite database and into the MySQL server simply to reduce duplication of code. Below are documented the steps required to alter the code in the ‘Data Processing’ sections of this analysis to move the data straight from the bz files into the MySQL server.</p>
 <ol style="list-style-type: decimal">
@@ -1389,8 +1398,8 @@ dbExecute(abnb_db_mys, idx_listing_id_rvw)</code></pre>
 dbDisconnect(abnb_db_slt)
 dbDisconnect(abnb_db_mys)</code></pre>
 </div>
-<div id="analysis" class="section level3">
-<h3>Analysis</h3>
+<div id="analysis" class="section level2">
+<h2>Analysis</h2>
 <p>Before beginning the analysis, we must consider some facts about the data and assumptions required to calculate unavailable metrics.</p>
 <p><strong>Data information</strong></p>
 <ol style="list-style-type: decimal">
@@ -1421,7 +1430,7 @@ dbDisconnect(abnb_db_mys)</code></pre>
 <li>An average of 3 nights is used for all other locations.</li>
 <li>If a listing has higher minimum nights that the average length of stay, the minimum nights for that listing is used instead.</li>
 </ol>
-<p>Because of the size of the data source, pre-aggregated data was generally retrieved from the web server through SQL queries. This data was then written to RData files to enable Tableau reporting off of the data (in addition to the visualizations created through the ggplot2 package).</p>
+<p>Because of the size of the data source, pre-aggregated data was generally retrieved from the web server through SQL queries. This data was then written to RData files to enable Tableau reporting off of the data, in addition to the visualizations created through the ggplot2 package.</p>
 <pre class="r"><code>library(RMySQL)
 library(DBI)
 library(dplyr)
@@ -1434,6 +1443,22 @@ mysql_password &lt;- readLines(&#39;C:/Credentials/AWS MySQL Airbnb Database/pas
 # Connect to MySQL database -- this instance has been launched with a database named &#39;airbnb&#39;
 abnb_db &lt;- dbConnect(MySQL(), dbname = &#39;airbnb&#39;, username = mysql_user_name, password = mysql_password,
                      host = mysql_server_address)</code></pre>
+<pre class="r"><code>dir.create(&#39;data&#39;, showWarnings = FALSE)</code></pre>
+<p>First, let’s inspect the characteristics of our data scrapes. Understanding our source data will help drive the analysis.</p>
+<pre class="r"><code>scrape_sql &lt;- &#39;SELECT * FROM Map_DataScrape&#39;
+scrape_sql_fetch &lt;- dbSendQuery(abnb_db, scrape_sql)
+scrape &lt;- dbFetch(scrape_sql_fetch)
+dbClearResult(scrape_sql_fetch)
+scrape$Country &lt;- as.factor(scrape$Country)
+scrape$State &lt;- as.factor(scrape$State)
+scrape$City &lt;- as.factor(scrape$City)
+scrape$DataScrapeDate &lt;- as.Date(scrape$DataScrapeDate)
+save(scrape, file = &#39;data/scrape.RData&#39;)</code></pre>
+<pre class="r"><code>load(&#39;data/scrape.RData&#39;)
+p &lt;- ggplot(scrape, aes(x = DataScrapeDate, y = City)) + geom_point(aes(color = Country)) +
+     xlab(&#39;Data Scrape Date&#39;) + theme_bw()
+print(p)</code></pre>
+<p><img src="Airbnb_files/figure-html/scrape_an1-1.png" /><!-- --></p>
 <pre class="r"><code># Disconnect from MySQL database
 dbDisconnect(abnb_db)</code></pre>
 </div>

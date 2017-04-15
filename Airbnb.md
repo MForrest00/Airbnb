@@ -1,9 +1,16 @@
 
-## Airbnb Analysis
+# Airbnb Analysis
 
-### Summary
+## Table of Contents {#toc}
 
-### R Environment Information
+1. [R Environment Information](#environment)
+2. [Data Processing I: SQLite](#sqlite)
+3. [Data Processing II: MySQL Web Server](#mysql)
+4. [Analysis](#analysis)
+
+## Summary {#summary}
+
+## R Environment Information {#environment}
 
 
 ```r
@@ -31,7 +38,7 @@ version.string "R version 3.3.2 (2016-10-31)"
 nickname       "Sincere Pumpkin Patch"       
 ```
 
-### Data Processing (Overview and SQLite Data Transfer)
+## Data Processing (Overview and SQLite Data Transfer) {#sqlite}
 
 Investigate directory structure of data folder, and create scrape metadata from folder names
 
@@ -543,7 +550,7 @@ Disconnect from the SQLite database
 dbDisconnect(abnb_db)
 ```
 
-### Data Processing (AWS MySQL RDS Instance Data Transfer)
+## Data Processing (AWS MySQL RDS Instance Data Transfer) {#mysql}
 
 Although merging all bz files into a SQLite database with the proper metadata enables significantly streamlined analysis, this approach towards data management carries significant downsides. The data takes up a large amount of space and is stored twice on disk (once in the assortment of gz files and once in the SQLite database). The analysis is limited by the processing power and memory of the user's computer. Finally, the SQLite database is serverless and therefore must be transferred to another user's computer in order to facilitate data sharing.
 
@@ -1410,7 +1417,7 @@ dbDisconnect(abnb_db_slt)
 dbDisconnect(abnb_db_mys)
 ```
 
-### Analysis
+## Analysis {#analysis}
 
 Before beginning the analysis, we must consider some facts about the data and assumptions required to calculate unavailable metrics.
 
@@ -1439,7 +1446,7 @@ Before beginning the analysis, we must consider some facts about the data and as
 2. An average of 3 nights is used for all other locations.
 3. If a listing has higher minimum nights that the average length of stay, the minimum nights for that listing is used instead.
 
-Because of the size of the data source, pre-aggregated data was generally retrieved from the web server through SQL queries. This data was then written to RData files to enable Tableau reporting off of the data (in addition to the visualizations created through the ggplot2 package).
+Because of the size of the data source, pre-aggregated data was generally retrieved from the web server through SQL queries. This data was then written to RData files to enable Tableau reporting off of the data, in addition to the visualizations created through the ggplot2 package.
 
 
 ```r
@@ -1460,6 +1467,62 @@ mysql_password <- readLines('C:/Credentials/AWS MySQL Airbnb Database/password.t
 abnb_db <- dbConnect(MySQL(), dbname = 'airbnb', username = mysql_user_name, password = mysql_password,
                      host = mysql_server_address)
 ```
+
+
+```r
+dir.create('data', showWarnings = FALSE)
+```
+
+First, let's inspect the characteristics of our data scrapes. Understanding our source data will help drive the analysis.
+
+
+```r
+scrape_sql <- 'SELECT * FROM Map_DataScrape'
+scrape_sql_fetch <- dbSendQuery(abnb_db, scrape_sql)
+scrape <- dbFetch(scrape_sql_fetch)
+dbClearResult(scrape_sql_fetch)
+scrape$Country <- as.factor(scrape$Country)
+scrape$State <- as.factor(scrape$State)
+scrape$City <- as.factor(scrape$City)
+scrape$DataScrapeDate <- as.Date(scrape$DataScrapeDate)
+save(scrape, file = 'data/scrape.RData')
+```
+
+
+```r
+load('data/scrape.RData')
+p <- ggplot(scrape, aes(x = DataScrapeDate, y = City)) + geom_point(aes(color = Country)) +
+     xlab('Data Scrape Date') + theme_bw()
+print(p)
+```
+
+![](Airbnb_files/figure-html/scrape_an1-1.png)<!-- -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
