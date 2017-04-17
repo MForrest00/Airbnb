@@ -5,8 +5,21 @@
 
 1. [R Environment Information](#environment)
 2. [Data Processing I: SQLite](#sqlite)
+    + [Overview](#overview-sqlite)
+    + [Table Creation](#table-sqlite)
+    + [Calendar Load](#calendar-sqlite)
+    + [Listings Load](#listings-sqlite)
+    + [Reviews Load](#reviews-sqlite)
+    + [Index Creation](#index-sqlite)
 3. [Data Processing II: MySQL Web Server](#mysql)
+    + [Overview](#overview-mysql)
+    + [Table Creation](#table-mysql)
+    + [Calendar Load](#calendar-mysql)
+    + [Listings Load](#listings-mysql)
+    + [Reviews Load](#reviews-mysql)
+    + [Index Creation](#index-mysql)
 4. [Analysis](#analysis)
+    + [Overview](#overview-analysis)
 
 ## Summary {#summary}
 
@@ -55,6 +68,8 @@ colnames(dir_df) <- c('Country', 'State', 'City', 'DataScrapeDate')
 rownames(dir_df) <- seq.int(1, nrow(dir_df))
 ```
 
+### Overview {#overview-sqlite}
+
 All data used in this analysis was downloaded from the [Inside Airbnb](http://insideairbnb.com/) website. Data files are available in the ['Get the Data'](http://insideairbnb.com/get-the-data.html) section of the website. This analysis uses the listings ('listings.csv.gz'), calendar ('calendar.csv.gz'), and reviews ('reviews.csv.gz') files.
 
 Data files were downloaded from the [Inside Airbnb](http://insideairbnb.com/) website and placed in a local directory, with a child-folder structure of [Country]/[State]/[City]/[Data Scrape Date ('YYYY-MM-DD')]/[GZ File]. The directory structure used the city, state, and country names from the headers of each scraped city on the ['Get the Data'](http://insideairbnb.com/get-the-data.html) page of the [Inside Airbnb](http://insideairbnb.com/) website. All files for all scrapes of all cities were downloaded as of March 15, 2017, barring the December 02, 2015 scrape of New York City (this scrape contained a broken link for the calendar file). This data encompassed 136 data scrapes for 43 distinct cities. Older scrapes for each city can be removed to cut down on the data size substantially.
@@ -82,6 +97,8 @@ Connect to or create the SQLite database and build the tables if they do not exi
 # Connect to or create SQLite database
 abnb_db <- dbConnect(SQLite(), sqlite_directory)
 ```
+
+### Table Creation {#table-sqlite}
 
 
 ```r
@@ -341,6 +358,8 @@ listings_df_colnames <- data.frame(listings_ds_colnames, listings_db_colnames)
 
 Loop through all directories (as defined in dir_df matrix), read all gz files, and populate data into the SQLite database
 
+### Calendar Load {#calendar-sqlite}
+
 
 ```r
 # Read calendar data and populate into SQLite database
@@ -381,6 +400,8 @@ if (file.exists('temp.txt')) {file.remove('temp.txt')}
 if (exists('calendar_temp')) {rm(calendar_temp)}
 if (exists('calendar')) {rm(calendar)}
 ```
+
+### Listings Load {#listings-sqlite}
 
 
 ```r
@@ -455,6 +476,8 @@ if (exists('listings_temp')) {rm(listings_temp)}
 if (exists('listings')) {rm(listings)}
 ```
 
+### Reviews Load {#reviews-sqlite}
+
 
 ```r
 # Read reviews data and populate into SQLite database
@@ -497,6 +520,8 @@ colnames(data_scrape) <- c('DataScrape_ID', 'Country', 'State', 'City', 'DataScr
 # Write data scrape mapping data frame to SQLite database
 dbWriteTable(abnb_db, name = 'Map_DataScrape', value = data_scrape, append = TRUE, row.names = FALSE)
 ```
+
+### Index Creation {#index-sqlite}
 
 **Optional:** Create database indices for faster querying
 
@@ -552,6 +577,8 @@ dbDisconnect(abnb_db)
 
 ## Data Processing (AWS MySQL RDS Instance Data Transfer) {#mysql}
 
+### Overview {#overview-mysql}
+
 Although merging all bz files into a SQLite database with the proper metadata enables significantly streamlined analysis, this approach towards data management carries significant downsides. The data takes up a large amount of space and is stored twice on disk (once in the assortment of gz files and once in the SQLite database). The analysis is limited by the processing power and memory of the user's computer. Finally, the SQLite database is serverless and therefore must be transferred to another user's computer in order to facilitate data sharing.
 
 Transferring the data to a server-based RDBMS solves these problems. Below, the data from the SQLite database will be moved to a MySQL server on an AWS RDS instance owned by the analysis author. There is no need for the SQLite database to server as an intermediary, however. In this analysis, the data will be moved out of the SQLite database and into the MySQL server simply to reduce duplication of code. Below are documented the steps required to alter the code in the 'Data Processing' sections of this analysis to move the data straight from the bz files into the MySQL server.
@@ -591,6 +618,8 @@ mysql_password <- readLines('C:/Credentials/AWS MySQL Airbnb Database/password.t
 abnb_db_mys <- dbConnect(MySQL(), dbname = 'airbnb', username = mysql_user_name, password = mysql_password,
                          host = mysql_server_address)
 ```
+
+### Table Creation {#table-mysql}
 
 Create the MySQL tables if they do not exist
 Field sizes were determined by manually investigating the maximum values (for integer or decimal fields) or the maximum character lengths (for varchar fields) in the SQLite database. Future data may require modifications to the table structure to prevent truncation of data.
@@ -796,6 +825,8 @@ Because the Calendar table is narrow, we can transfer it in batches of five mill
 work_dir_stem <- getwd()
 ```
 
+### Calendar Load {#calendar-mysql}
+
 
 ```r
 loop <- 0
@@ -840,6 +871,8 @@ while (loop < table_rows[1, 1]) {
 if (file.exists('calendar_transf.txt')) {file.remove('calendar_transf.txt')}
 if (exists('calendar_rows')) {rm(calendar_rows)}
 ```
+
+### Listings Load {#listings-mysql}
 
 
 ```r
@@ -1290,6 +1323,8 @@ if (file.exists('listings_transf.txt')) {file.remove('listings_transf.txt')}
 if (exists('listings_rows')) {rm(listings_rows)}
 ```
 
+### Reviews Load {#reviews-mysql}
+
 
 ```r
 loop <- 0
@@ -1363,6 +1398,8 @@ dbClearResult(scrape_load)
 if (file.exists('scrape_transf.txt')) {file.remove('scrape_transf.txt')}
 ```
 
+### Index Creation {#index-mysql}
+
 **Optional:** Create database indices for faster querying  
 MySQL has no CREATE INDEX IF NOT EXISTS functionality, so do not run this code chunk if the indices already exists.
 
@@ -1420,6 +1457,8 @@ dbDisconnect(abnb_db_mys)
 ## Analysis {#analysis}
 
 Before beginning the analysis, we must consider some facts about the data and assumptions required to calculate unavailable metrics.
+
+### Overview {#overview-analysis}
 
 **Data information**
 

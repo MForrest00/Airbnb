@@ -125,9 +125,28 @@ $(document).ready(function () {
 <h2>Table of Contents</h2>
 <ol style="list-style-type: decimal">
 <li><a href="#environment">R Environment Information</a></li>
-<li><a href="#sqlite">Data Processing I: SQLite</a></li>
-<li><a href="#mysql">Data Processing II: MySQL Web Server</a></li>
-<li><a href="#analysis">Analysis</a></li>
+<li><a href="#sqlite">Data Processing I: SQLite</a>
+<ul>
+<li><a href="#overview-sqlite">Overview</a></li>
+<li><a href="#table-sqlite">Table Creation</a></li>
+<li><a href="#calendar-sqlite">Calendar Load</a></li>
+<li><a href="#listings-sqlite">Listings Load</a></li>
+<li><a href="#reviews-sqlite">Reviews Load</a></li>
+<li><a href="#index-sqlite">Index Creation</a></li>
+</ul></li>
+<li><a href="#mysql">Data Processing II: MySQL Web Server</a>
+<ul>
+<li><a href="#overview-mysql">Overview</a></li>
+<li><a href="#table-mysql">Table Creation</a></li>
+<li><a href="#calendar-mysql">Calendar Load</a></li>
+<li><a href="#listings-mysql">Listings Load</a></li>
+<li><a href="#reviews-mysql">Reviews Load</a></li>
+<li><a href="#index-mysql">Index Creation</a></li>
+</ul></li>
+<li><a href="#analysis">Analysis</a>
+<ul>
+<li><a href="#overview-analysis">Overview</a></li>
+</ul></li>
 </ol>
 </div>
 <div id="summary" class="section level2">
@@ -167,6 +186,8 @@ dir_df &lt;- t(data.frame(strsplit(dir_vec, split = &#39;/&#39;), stringsAsFacto
 dir_df &lt;- unique(dir_df[, 1:4])
 colnames(dir_df) &lt;- c(&#39;Country&#39;, &#39;State&#39;, &#39;City&#39;, &#39;DataScrapeDate&#39;)
 rownames(dir_df) &lt;- seq.int(1, nrow(dir_df))</code></pre>
+<div id="overview-sqlite" class="section level3">
+<h3>Overview</h3>
 <p>All data used in this analysis was downloaded from the <a href="http://insideairbnb.com/">Inside Airbnb</a> website. Data files are available in the <a href="http://insideairbnb.com/get-the-data.html">‘Get the Data’</a> section of the website. This analysis uses the listings (‘listings.csv.gz’), calendar (‘calendar.csv.gz’), and reviews (‘reviews.csv.gz’) files.</p>
 <p>Data files were downloaded from the <a href="http://insideairbnb.com/">Inside Airbnb</a> website and placed in a local directory, with a child-folder structure of [Country]/[State]/[City]/[Data Scrape Date (‘YYYY-MM-DD’)]/[GZ File]. The directory structure used the city, state, and country names from the headers of each scraped city on the <a href="http://insideairbnb.com/get-the-data.html">‘Get the Data’</a> page of the <a href="http://insideairbnb.com/">Inside Airbnb</a> website. All files for all scrapes of all cities were downloaded as of March 15, 2017, barring the December 02, 2015 scrape of New York City (this scrape contained a broken link for the calendar file). This data encompassed 136 data scrapes for 43 distinct cities. Older scrapes for each city can be removed to cut down on the data size substantially.</p>
 <p>This code uses the directory structure of the data folder to construct the metadata for the scraped data. It is therefore imperative that the directory structure is properly set-up. The listings, calendar, and reviews files must retain their original file names.</p>
@@ -178,6 +199,9 @@ sqlite_directory &lt;- &#39;C:/SQLite/Databases/Airbnb.sqlite3&#39;</code></pre>
 <p>Connect to or create the SQLite database and build the tables if they do not exist</p>
 <pre class="r"><code># Connect to or create SQLite database
 abnb_db &lt;- dbConnect(SQLite(), sqlite_directory)</code></pre>
+</div>
+<div id="table-sqlite" class="section level3">
+<h3>Table Creation</h3>
 <pre class="r"><code># Create tables if they do not exist
 calendar_create &lt;- &#39;CREATE TABLE IF NOT EXISTS Calendar (
                         Calendar_ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL UNIQUE,
@@ -409,6 +433,9 @@ listings_db_colnames &lt;- c(&#39;Listings_ID&#39;, &#39;DataScrape_ID&#39;, &#3
 # Combine gz file data source and SQLite column names for listings data into mapping data frame
 listings_df_colnames &lt;- data.frame(listings_ds_colnames, listings_db_colnames)</code></pre>
 <p>Loop through all directories (as defined in dir_df matrix), read all gz files, and populate data into the SQLite database</p>
+</div>
+<div id="calendar-sqlite" class="section level3">
+<h3>Calendar Load</h3>
 <pre class="r"><code># Read calendar data and populate into SQLite database
 loop &lt;- 1 + max_scrape
 while (loop &lt;= (max_scrape + nrow(dir_df))) {
@@ -446,6 +473,9 @@ while (loop &lt;= (max_scrape + nrow(dir_df))) {
 if (file.exists(&#39;temp.txt&#39;)) {file.remove(&#39;temp.txt&#39;)}
 if (exists(&#39;calendar_temp&#39;)) {rm(calendar_temp)}
 if (exists(&#39;calendar&#39;)) {rm(calendar)}</code></pre>
+</div>
+<div id="listings-sqlite" class="section level3">
+<h3>Listings Load</h3>
 <pre class="r"><code># Read listings data and populate into SQLite database
 loop &lt;- 1 + max_scrape
 while (loop &lt;= (max_scrape + nrow(dir_df))) {
@@ -515,6 +545,9 @@ while (loop &lt;= (max_scrape + nrow(dir_df))) {
 if (file.exists(&#39;temp.txt&#39;)) {file.remove(&#39;temp.txt&#39;)}
 if (exists(&#39;listings_temp&#39;)) {rm(listings_temp)}
 if (exists(&#39;listings&#39;)) {rm(listings)}</code></pre>
+</div>
+<div id="reviews-sqlite" class="section level3">
+<h3>Reviews Load</h3>
 <pre class="r"><code># Read reviews data and populate into SQLite database
 loop &lt;- 1 + max_scrape
 while (loop &lt;= (max_scrape + nrow(dir_df))) {
@@ -550,6 +583,9 @@ data_scrape &lt;- cbind.data.frame(scrape_seq, dir_df)
 colnames(data_scrape) &lt;- c(&#39;DataScrape_ID&#39;, &#39;Country&#39;, &#39;State&#39;, &#39;City&#39;, &#39;DataScrapeDate&#39;)
 # Write data scrape mapping data frame to SQLite database
 dbWriteTable(abnb_db, name = &#39;Map_DataScrape&#39;, value = data_scrape, append = TRUE, row.names = FALSE)</code></pre>
+</div>
+<div id="index-sqlite" class="section level3">
+<h3>Index Creation</h3>
 <p><strong>Optional:</strong> Create database indices for faster querying</p>
 <pre class="r"><code># Data scrape ID indices
 idx_datascrape_id &lt;- &#39;CREATE INDEX IF NOT EXISTS idx_DataScrape_ID ON Map_DataScrape (
@@ -593,8 +629,11 @@ dbExecute(abnb_db, idx_listing_id_rvw)</code></pre>
 <pre class="r"><code># Disconnect from SQLite database
 dbDisconnect(abnb_db)</code></pre>
 </div>
+</div>
 <div id="mysql" class="section level2">
 <h2>Data Processing (AWS MySQL RDS Instance Data Transfer)</h2>
+<div id="overview-mysql" class="section level3">
+<h3>Overview</h3>
 <p>Although merging all bz files into a SQLite database with the proper metadata enables significantly streamlined analysis, this approach towards data management carries significant downsides. The data takes up a large amount of space and is stored twice on disk (once in the assortment of gz files and once in the SQLite database). The analysis is limited by the processing power and memory of the user’s computer. Finally, the SQLite database is serverless and therefore must be transferred to another user’s computer in order to facilitate data sharing.</p>
 <p>Transferring the data to a server-based RDBMS solves these problems. Below, the data from the SQLite database will be moved to a MySQL server on an AWS RDS instance owned by the analysis author. There is no need for the SQLite database to server as an intermediary, however. In this analysis, the data will be moved out of the SQLite database and into the MySQL server simply to reduce duplication of code. Below are documented the steps required to alter the code in the ‘Data Processing’ sections of this analysis to move the data straight from the bz files into the MySQL server.</p>
 <ol style="list-style-type: decimal">
@@ -627,6 +666,9 @@ mysql_password &lt;- readLines(&#39;C:/Credentials/AWS MySQL Airbnb Database/pas
 # Connect to MySQL database -- this instance has been launched with a database named &#39;airbnb&#39;
 abnb_db_mys &lt;- dbConnect(MySQL(), dbname = &#39;airbnb&#39;, username = mysql_user_name, password = mysql_password,
                          host = mysql_server_address)</code></pre>
+</div>
+<div id="table-mysql" class="section level3">
+<h3>Table Creation</h3>
 <p>Create the MySQL tables if they do not exist Field sizes were determined by manually investigating the maximum values (for integer or decimal fields) or the maximum character lengths (for varchar fields) in the SQLite database. Future data may require modifications to the table structure to prevent truncation of data.</p>
 <pre class="r"><code># Create tables if they do not exist
 calendar_create &lt;- &#39;CREATE TABLE IF NOT EXISTS airbnb.Calendar (
@@ -802,6 +844,9 @@ Listings   1924970
 Reviews   25220866</code></pre>
 <p>Because the Calendar table is narrow, we can transfer it in batches of five million. The Reviews table can be transferred in batches of half a million. The wider Listings table will be transferred in batches of 100,000.</p>
 <pre class="r"><code>work_dir_stem &lt;- getwd()</code></pre>
+</div>
+<div id="calendar-mysql" class="section level3">
+<h3>Calendar Load</h3>
 <pre class="r"><code>loop &lt;- 0
 batch_size &lt;- 5000000
 work_dir &lt;- paste(work_dir_stem, &#39;/calendar_transf.txt&#39;, sep = &#39;&#39;)
@@ -843,6 +888,9 @@ while (loop &lt; table_rows[1, 1]) {
 # Remove temp file and large objects
 if (file.exists(&#39;calendar_transf.txt&#39;)) {file.remove(&#39;calendar_transf.txt&#39;)}
 if (exists(&#39;calendar_rows&#39;)) {rm(calendar_rows)}</code></pre>
+</div>
+<div id="listings-mysql" class="section level3">
+<h3>Listings Load</h3>
 <pre class="r"><code>loop &lt;- 0
 batch_size &lt;- 100000
 work_dir &lt;- paste(work_dir_stem, &#39;/listings_transf.txt&#39;, sep = &#39;&#39;)
@@ -1288,6 +1336,9 @@ while (loop &lt; table_rows[2, 1]) {
 # Remove temp file and large objects
 if (file.exists(&#39;listings_transf.txt&#39;)) {file.remove(&#39;listings_transf.txt&#39;)}
 if (exists(&#39;listings_rows&#39;)) {rm(listings_rows)}</code></pre>
+</div>
+<div id="reviews-mysql" class="section level3">
+<h3>Reviews Load</h3>
 <pre class="r"><code>loop &lt;- 0
 batch_size &lt;- 500000
 work_dir &lt;- paste(work_dir_stem, &#39;/reviews_transf.txt&#39;, sep = &#39;&#39;)
@@ -1353,6 +1404,9 @@ dbClearResult(scrape_load)
 
 # Remove temp file
 if (file.exists(&#39;scrape_transf.txt&#39;)) {file.remove(&#39;scrape_transf.txt&#39;)}</code></pre>
+</div>
+<div id="index-mysql" class="section level3">
+<h3>Index Creation</h3>
 <p><strong>Optional:</strong> Create database indices for faster querying<br />
 MySQL has no CREATE INDEX IF NOT EXISTS functionality, so do not run this code chunk if the indices already exists.</p>
 <pre class="r"><code># Data scrape ID indices
@@ -1398,9 +1452,12 @@ dbExecute(abnb_db_mys, idx_listing_id_rvw)</code></pre>
 dbDisconnect(abnb_db_slt)
 dbDisconnect(abnb_db_mys)</code></pre>
 </div>
+</div>
 <div id="analysis" class="section level2">
 <h2>Analysis</h2>
 <p>Before beginning the analysis, we must consider some facts about the data and assumptions required to calculate unavailable metrics.</p>
+<div id="overview-analysis" class="section level3">
+<h3>Overview</h3>
 <p><strong>Data information</strong></p>
 <ol style="list-style-type: decimal">
 <li>Data utilizes public information compiled from the Airbnb website (hosted on the <a href="http://insideairbnb.com/">Inside Airbnb</a> website).</li>
@@ -1461,6 +1518,7 @@ print(p)</code></pre>
 <p><img src="Airbnb_files/figure-html/scrape_an1-1.png" /><!-- --></p>
 <pre class="r"><code># Disconnect from MySQL database
 dbDisconnect(abnb_db)</code></pre>
+</div>
 </div>
 </div>
 
