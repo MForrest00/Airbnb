@@ -20,6 +20,9 @@
     + [Index Creation](#index-mysql)
 4. [Analysis](#analysis)
     + [Overview](#overview-analysis)
+    + [Data Scrapes by City Plot](#data-scrapes-plot)
+    + [Data Scrapes by City Table](#data-scrapes-table)
+    + [Listings Growth by City](#listings-growth)
 
 ## Summary {#summary}
 
@@ -1010,7 +1013,9 @@ while (loop < table_rows[2, 1]) {
                          ,CASE
                              WHEN HostNeighborhood IS NULL
                              THEN \'NULLTYPE\'
-                             ELSE HostNeighborhood END AS HostNeighborhood
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(HostNeighborhood,
+                                 CHAR(9), \' \'), CHAR(10), \' \'), CHAR(11), \'\'), CHAR(13), \' \'),
+                                 CHAR(8), \'\'), \'|\', \'-\'), CHAR(92), \'-\') END AS HostNeighborhood
                          ,CASE
                              WHEN HostListingsCount IS NULL OR HostListingsCount = \'\'
                              THEN \'NULLTYPE\'
@@ -1034,8 +1039,12 @@ while (loop < table_rows[2, 1]) {
                          ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Street, CHAR(9), \' \'),
                              CHAR(10), \' \'), CHAR(11), \'\'), CHAR(13), \' \'), CHAR(8), \'\'),
                              \'|\', \'-\'), CHAR(92), \'-\') AS Street
-                         ,Neighborhood
-                         ,NeighborhoodCleansed
+                         ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Neighborhood,
+                             CHAR(9), \' \'), CHAR(10), \' \'), CHAR(11), \'\'), CHAR(13), \' \'),
+                             CHAR(8), \'\'), \'|\', \'-\'), CHAR(92), \'-\') AS Neighborhood
+                         ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(NeighborhoodCleansed,
+                             CHAR(9), \' \'), CHAR(10), \' \'), CHAR(11), \'\'), CHAR(13), \' \'),
+                             CHAR(8), \'\'), \'|\', \'-\'), CHAR(92), \'-\') AS NeighborhoodCleansed
                          ,CASE
                              WHEN NeighborhoodGroupCleansed IS NULL
                              THEN \'NULLTYPE\'
@@ -1171,11 +1180,15 @@ while (loop < table_rows[2, 1]) {
                          ,CASE
                              WHEN License IS NULL
                              THEN \'NULLTYPE\'
-                             ELSE License END AS License
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(License,
+                                 CHAR(9), \' \'), CHAR(10), \' \'), CHAR(11), \'\'), CHAR(13), \' \'),
+                                 CHAR(8), \'\'), \'|\', \'-\'), CHAR(92), \'-\') END AS License
                          ,CASE
                              WHEN JurisdictionNames IS NULL
                              THEN \'NULLTYPE\'
-                             ELSE JurisdictionNames END AS JurisdictionNames
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(JurisdictionNames,
+                                 CHAR(9), \' \'), CHAR(10), \' \'), CHAR(11), \'\'), CHAR(13), \' \'),
+                                 CHAR(8), \'\'), \'|\', \'-\'), CHAR(92), \'-\') END AS JurisdictionNames
                          ,CASE
                              WHEN InstantBookable IS NULL
                              THEN \'NULLTYPE\'
@@ -1492,7 +1505,9 @@ Because of the size of the data source, pre-aggregated data was generally retrie
 library(RMySQL)
 library(DBI)
 library(dplyr)
+library(tidyr)
 library(ggplot2)
+library(knitr)
 ```
 
 
@@ -1514,45 +1529,170 @@ dir.create('data', showWarnings = FALSE)
 
 First, let's inspect the characteristics of our data scrapes. Understanding our source data will help drive the analysis.
 
+### Data Scrapes by City Plot {#data-scrapes-plot}
+
 
 ```r
-scrape_sql <- 'SELECT * FROM Map_DataScrape'
+scrape_sql <- 'SELECT
+                   ds.Country
+                   ,ds.State
+                   ,ds.City
+                   ,ds.DataScrapeDate
+                   ,ls.PropertyType
+                   ,ls.RoomType
+                   ,COUNT(*) AS ListingsCount
+               FROM Map_DataScrape AS ds
+                   INNER JOIN Listings AS ls ON ds.DataScrape_ID = ls.DataScrape_ID
+               GROUP BY 1, 2, 3, 4, 5, 6;'
 scrape_sql_fetch <- dbSendQuery(abnb_db, scrape_sql)
-scrape <- dbFetch(scrape_sql_fetch)
+scrape <- dbFetch(scrape_sql_fetch, n = -1)
 dbClearResult(scrape_sql_fetch)
 scrape$Country <- as.factor(scrape$Country)
 scrape$State <- as.factor(scrape$State)
 scrape$City <- as.factor(scrape$City)
 scrape$DataScrapeDate <- as.Date(scrape$DataScrapeDate)
+scrape$PropertyType <- as.factor(scrape$PropertyType)
+scrape$RoomType <- as.factor(scrape$RoomType)
 save(scrape, file = 'data/scrape.RData')
 ```
 
 
 ```r
 load('data/scrape.RData')
-p <- ggplot(scrape, aes(x = DataScrapeDate, y = City)) + geom_point(aes(color = Country)) +
-     xlab('Data Scrape Date') + theme_bw()
+scrape <- unique(select(scrape, Country, State, City, DataScrapeDate))
+scrape$CountryCity <- paste(scrape$City, ' - ', scrape$Country, sep = '')
+scrape$CountryCity <- factor(scrape$CountryCity,
+                             levels = unique(scrape$CountryCity[order(scrape$Country, scrape$City,
+                                                                      decreasing = TRUE)]))
+p <- ggplot(scrape, aes(x = DataScrapeDate, y = CountryCity)) + geom_point(aes(color = Country)) +
+     xlab('Data Scrape Date') + ggtitle('Data Scrape Dates by City and Country') +
+     theme_bw() + theme(legend.position = 'none', axis.title.y = element_blank())
 print(p)
 ```
 
-![](Airbnb_files/figure-html/scrape_an1-1.png)<!-- -->
+![](Airbnb_files/figure-html/scrape_plot-1.png)<!-- -->
+
+### Data Scrapes by City Table {#data-scrapes-table}
+
+
+```r
+load('data/scrape.RData')
+scrape <- scrape %>% group_by(Country, State, City) %>%
+          summarize(TotalDataScrapes = n_distinct(DataScrapeDate), FirstDataScrape = min(DataScrapeDate),
+                    LastDataScrape = max(DataScrapeDate)) %>%
+          select(Country, State, City, 'Total Data Scrapes' = TotalDataScrapes,
+                 'First Data Scrape' = FirstDataScrape, 'Last Data Scrape' = LastDataScrape)
+kable(scrape, align = c('l', 'l', 'l', 'c', 'c', 'c'))
+```
 
 
 
+Country           State                           City                 Total Data Scrapes    First Data Scrape    Last Data Scrape 
+----------------  ------------------------------  ------------------  --------------------  -------------------  ------------------
+Australia         New South Wales                 Northern Rivers              1                2016-04-02           2016-04-02    
+Australia         New South Wales                 Sydney                       7                2015-05-10           2017-03-03    
+Australia         Victoria                        Melbourne                    7                2015-07-18           2016-12-05    
+Austria           Vienna                          Vienna                       1                2015-07-18           2015-07-18    
+Belgium           Brussels                        Brussels                     1                2015-10-03           2015-10-03    
+Belgium           Flemish Region                  Antwerp                      1                2015-10-03           2015-10-03    
+Canada            British Columbia                Vancouver                    2                2015-11-07           2015-12-03    
+Canada            British Columbia                Victoria                     1                2016-08-01           2016-08-01    
+Canada            Ontario                         Toronto                      5                2015-06-07           2017-03-03    
+Canada            Quebec                          Montreal                     2                2015-10-02           2016-05-04    
+Canada            Quebec                          Quebec City                  2                2016-08-09           2016-09-10    
+China             Hong Kong                       Hong Kong                    1                2016-08-07           2016-08-07    
+Denmark           Hovedstaden                     Copenhagen                   1                2016-06-28           2016-06-28    
+France            Ile-de-France                   Paris                        4                2015-05-06           2016-07-03    
+Germany           Berlin                          Berlin                       1                2015-10-03           2015-10-03    
+Greece            Attica                          Athens                       1                2015-07-17           2015-07-17    
+Ireland           Leinster                        Dublin                       3                2016-01-06           2017-02-18    
+Italy             Trentino-Alto Adige, Sudtirol   Trentino                     1                2015-10-12           2015-10-12    
+Italy             Veneto                          Venice                       1                2015-07-18           2015-07-18    
+Spain             Catalonia                       Barcelona                    6                2015-04-30           2016-12-08    
+Spain             Comunidad de Madrid             Madrid                       4                2015-07-17           2017-03-06    
+Spain             Islas Baleares                  Mallorca                     2                2016-01-06           2017-03-15    
+Switzerland       Geneva                          Geneva                       1                2016-08-06           2016-08-06    
+The Netherlands   North Holland                   Amsterdam                    6                2015-04-05           2017-03-02    
+United Kingdom    England                         London                       6                2015-04-06           2017-03-04    
+United Kingdom    England                         Manchester                   1                2016-04-10           2016-04-10    
+United Kingdom    Scotland                        Edinburgh                    1                2016-07-09           2016-07-09    
+United States     California                      Los Angeles                  9                2015-05-24           2017-03-02    
+United States     California                      Oakland                      2                2015-06-22           2016-05-04    
+United States     California                      San Diego                    2                2015-06-22           2016-07-07    
+United States     California                      San Francisco                6                2015-05-04           2017-03-02    
+United States     California                      Santa Cruz County            1                2015-10-15           2015-10-15    
+United States     Colorado                        Denver                       1                2016-05-16           2016-05-16    
+United States     District of Columbia            Washington DC                1                2015-10-03           2015-10-03    
+United States     Illinois                        Chicago                      1                2015-10-03           2015-10-03    
+United States     Louisiana                       New Orleans                  8                2015-06-05           2017-03-04    
+United States     Massachusetts                   Boston                       2                2015-10-03           2016-09-07    
+United States     New York                        New York City                20               2015-01-01           2017-03-02    
+United States     North Carolina                  Asheville                    1                2016-04-18           2016-04-18    
+United States     Oregon                          Portland                     5                2015-03-01           2016-07-04    
+United States     Tennessee                       Nashville                    3                2015-06-22           2016-09-06    
+United States     Texas                           Austin                       2                2015-05-23           2015-11-07    
+United States     Washington                      Seattle                      2                2015-06-22           2016-01-04    
+
+### Listings Growth by City {#listings-growth}
+
+Now, let's look at some simple growth plots for total listings. We'll restrict the eligible cities to only cities where the total count of listings was equal to or greater than 10,000 in at least one of the data scrapes. We'll also distinguish between growth in total listings and growth in listings where the room type is listed as 'Entire home/apt'. These are the room types which are most analagous to a standard hotel room. The other room types are 'Private room' and 'Shared room'.
 
 
+```r
+load('data/scrape.RData')
+scrape <- scrape %>% group_by(Country, State, City, DataScrapeDate) %>%
+          mutate(TotalListings = sum(ListingsCount)) %>%
+          group_by(Country, State, City) %>% mutate(MaxListings = max(TotalListings)) %>%
+          filter(MaxListings >= 20000) %>% filter(RoomType == 'Entire home/apt') %>%
+          group_by(Country, State, City, DataScrapeDate, RoomType) %>%
+          mutate(EntireHomeAptListings = sum(ListingsCount)) %>% ungroup() %>%
+          select(Country, State, City, DataScrapeDate, MaxListings, TotalListings, EntireHomeAptListings) %>%
+          distinct() %>% gather(ListingsType, Count, 6:7)
+p <- ggplot(scrape, aes(x = DataScrapeDate, y = Count, group = ListingsType)) +
+     geom_line(aes(color = ListingsType)) + facet_grid(City ~ .) +
+     xlab('Data Scrape Date') + ylab('Listings Count') + ggtitle('Total Listings by City') +
+     theme_bw() + theme(legend.position = 'bottom') + labs(color = 'Listings Type') +
+     scale_y_continuous(labels = function(x) format(x, big.mark = ',', scientific = FALSE))
+print(p)
+```
 
+![](Airbnb_files/figure-html/listings_growth-1.png)<!-- -->
 
+Embedded below is a Tableau workbook displaying listings growth by city, using raw HTML inside the markdown document.
 
+<!--html_preserve-->
+<div class='tableauPlaceholder' id='viz1492477398154' style='position: relative'>
+	<noscript>
+		<a href='#'>
+			<img alt='Listings Growth by City' src='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;Li&#47;ListingsGrowthbyCity&#47;ListingsGrowthbyCity&#47;1_rss.png' style='border: none' />
+		</a>
+	</noscript>
+	<object class='tableauViz' style='display: none;'>
+		<param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' />
+		<param name='site_root' value='' />
+		<param name='name' value='ListingsGrowthbyCity&#47;ListingsGrowthbyCity' />
+		<param name='tabs' value='no' />
+		<param name='toolbar' value='yes' />
+		<param name='static_image' value='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;Li&#47;ListingsGrowthbyCity&#47;ListingsGrowthbyCity&#47;1.png' />
+		<param name='animate_transition' value='yes' />
+		<param name='display_static_image' value='yes' />
+		<param name='display_spinner' value='yes' />
+		<param name='display_overlay' value='yes' />
+		<param name='display_count' value='yes' />
+	</object>
+</div>
+<script type='text/javascript'>
+	var divElement = document.getElementById('viz1492477398154');
+	var vizElement = divElement.getElementsByTagName('object')[0];
+	vizElement.style.width = '100%';
+	vizElement.style.height = (divElement.offsetWidth * 0.75) + 'px';
+	var scriptElement = document.createElement('script');
+	scriptElement.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';
+	vizElement.parentNode.insertBefore(scriptElement, vizElement);
+</script>
+<!--/html_preserve-->
 
-
-
-
-
-
-
-
-
+**Tableau Listings Growth by City**
 
 
 

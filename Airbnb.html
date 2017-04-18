@@ -146,6 +146,9 @@ $(document).ready(function () {
 <li><a href="#analysis">Analysis</a>
 <ul>
 <li><a href="#overview-analysis">Overview</a></li>
+<li><a href="#data-scrapes-plot">Data Scrapes by City Plot</a></li>
+<li><a href="#data-scrapes-table">Data Scrapes by City Table</a></li>
+<li><a href="#listings-growth">Listings Growth by City</a></li>
 </ul></li>
 </ol>
 </div>
@@ -1025,7 +1028,9 @@ while (loop &lt; table_rows[2, 1]) {
                          ,CASE
                              WHEN HostNeighborhood IS NULL
                              THEN \&#39;NULLTYPE\&#39;
-                             ELSE HostNeighborhood END AS HostNeighborhood
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(HostNeighborhood,
+                                 CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                                 CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) END AS HostNeighborhood
                          ,CASE
                              WHEN HostListingsCount IS NULL OR HostListingsCount = \&#39;\&#39;
                              THEN \&#39;NULLTYPE\&#39;
@@ -1049,8 +1054,12 @@ while (loop &lt; table_rows[2, 1]) {
                          ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Street, CHAR(9), \&#39; \&#39;),
                              CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;), CHAR(8), \&#39;\&#39;),
                              \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) AS Street
-                         ,Neighborhood
-                         ,NeighborhoodCleansed
+                         ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Neighborhood,
+                             CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                             CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) AS Neighborhood
+                         ,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(NeighborhoodCleansed,
+                             CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                             CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) AS NeighborhoodCleansed
                          ,CASE
                              WHEN NeighborhoodGroupCleansed IS NULL
                              THEN \&#39;NULLTYPE\&#39;
@@ -1186,11 +1195,15 @@ while (loop &lt; table_rows[2, 1]) {
                          ,CASE
                              WHEN License IS NULL
                              THEN \&#39;NULLTYPE\&#39;
-                             ELSE License END AS License
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(License,
+                                 CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                                 CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) END AS License
                          ,CASE
                              WHEN JurisdictionNames IS NULL
                              THEN \&#39;NULLTYPE\&#39;
-                             ELSE JurisdictionNames END AS JurisdictionNames
+                             ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(JurisdictionNames,
+                                 CHAR(9), \&#39; \&#39;), CHAR(10), \&#39; \&#39;), CHAR(11), \&#39;\&#39;), CHAR(13), \&#39; \&#39;),
+                                 CHAR(8), \&#39;\&#39;), \&#39;|\&#39;, \&#39;-\&#39;), CHAR(92), \&#39;-\&#39;) END AS JurisdictionNames
                          ,CASE
                              WHEN InstantBookable IS NULL
                              THEN \&#39;NULLTYPE\&#39;
@@ -1491,7 +1504,9 @@ dbDisconnect(abnb_db_mys)</code></pre>
 <pre class="r"><code>library(RMySQL)
 library(DBI)
 library(dplyr)
-library(ggplot2)</code></pre>
+library(tidyr)
+library(ggplot2)
+library(knitr)</code></pre>
 <pre class="r"><code># Load MySQL server address and log-in credentials (replace with your server address and log-in credentials)
 mysql_server_address &lt;- readLines(&#39;C:/Credentials/AWS MySQL Airbnb Database/serverAddress.txt&#39;)
 mysql_user_name &lt;- readLines(&#39;C:/Credentials/AWS MySQL Airbnb Database/userName.txt&#39;)
@@ -1502,20 +1517,462 @@ abnb_db &lt;- dbConnect(MySQL(), dbname = &#39;airbnb&#39;, username = mysql_use
                      host = mysql_server_address)</code></pre>
 <pre class="r"><code>dir.create(&#39;data&#39;, showWarnings = FALSE)</code></pre>
 <p>First, let’s inspect the characteristics of our data scrapes. Understanding our source data will help drive the analysis.</p>
-<pre class="r"><code>scrape_sql &lt;- &#39;SELECT * FROM Map_DataScrape&#39;
+</div>
+<div id="data-scrapes-plot" class="section level3">
+<h3>Data Scrapes by City Plot</h3>
+<pre class="r"><code>scrape_sql &lt;- &#39;SELECT
+                   ds.Country
+                   ,ds.State
+                   ,ds.City
+                   ,ds.DataScrapeDate
+                   ,ls.PropertyType
+                   ,ls.RoomType
+                   ,COUNT(*) AS ListingsCount
+               FROM Map_DataScrape AS ds
+                   INNER JOIN Listings AS ls ON ds.DataScrape_ID = ls.DataScrape_ID
+               GROUP BY 1, 2, 3, 4, 5, 6;&#39;
 scrape_sql_fetch &lt;- dbSendQuery(abnb_db, scrape_sql)
-scrape &lt;- dbFetch(scrape_sql_fetch)
+scrape &lt;- dbFetch(scrape_sql_fetch, n = -1)
 dbClearResult(scrape_sql_fetch)
 scrape$Country &lt;- as.factor(scrape$Country)
 scrape$State &lt;- as.factor(scrape$State)
 scrape$City &lt;- as.factor(scrape$City)
 scrape$DataScrapeDate &lt;- as.Date(scrape$DataScrapeDate)
+scrape$PropertyType &lt;- as.factor(scrape$PropertyType)
+scrape$RoomType &lt;- as.factor(scrape$RoomType)
 save(scrape, file = &#39;data/scrape.RData&#39;)</code></pre>
 <pre class="r"><code>load(&#39;data/scrape.RData&#39;)
-p &lt;- ggplot(scrape, aes(x = DataScrapeDate, y = City)) + geom_point(aes(color = Country)) +
-     xlab(&#39;Data Scrape Date&#39;) + theme_bw()
+scrape &lt;- unique(select(scrape, Country, State, City, DataScrapeDate))
+scrape$CountryCity &lt;- paste(scrape$City, &#39; - &#39;, scrape$Country, sep = &#39;&#39;)
+scrape$CountryCity &lt;- factor(scrape$CountryCity,
+                             levels = unique(scrape$CountryCity[order(scrape$Country, scrape$City,
+                                                                      decreasing = TRUE)]))
+p &lt;- ggplot(scrape, aes(x = DataScrapeDate, y = CountryCity)) + geom_point(aes(color = Country)) +
+     xlab(&#39;Data Scrape Date&#39;) + ggtitle(&#39;Data Scrape Dates by City and Country&#39;) +
+     theme_bw() + theme(legend.position = &#39;none&#39;, axis.title.y = element_blank())
 print(p)</code></pre>
-<p><img src="Airbnb_files/figure-html/scrape_an1-1.png" /><!-- --></p>
+<p><img src="Airbnb_files/figure-html/scrape_plot-1.png" /><!-- --></p>
+</div>
+<div id="data-scrapes-table" class="section level3">
+<h3>Data Scrapes by City Table</h3>
+<pre class="r"><code>load(&#39;data/scrape.RData&#39;)
+scrape &lt;- scrape %&gt;% group_by(Country, State, City) %&gt;%
+          summarize(TotalDataScrapes = n_distinct(DataScrapeDate), FirstDataScrape = min(DataScrapeDate),
+                    LastDataScrape = max(DataScrapeDate)) %&gt;%
+          select(Country, State, City, &#39;Total Data Scrapes&#39; = TotalDataScrapes,
+                 &#39;First Data Scrape&#39; = FirstDataScrape, &#39;Last Data Scrape&#39; = LastDataScrape)
+kable(scrape, align = c(&#39;l&#39;, &#39;l&#39;, &#39;l&#39;, &#39;c&#39;, &#39;c&#39;, &#39;c&#39;))</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Country</th>
+<th align="left">State</th>
+<th align="left">City</th>
+<th align="center">Total Data Scrapes</th>
+<th align="center">First Data Scrape</th>
+<th align="center">Last Data Scrape</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Australia</td>
+<td align="left">New South Wales</td>
+<td align="left">Northern Rivers</td>
+<td align="center">1</td>
+<td align="center">2016-04-02</td>
+<td align="center">2016-04-02</td>
+</tr>
+<tr class="even">
+<td align="left">Australia</td>
+<td align="left">New South Wales</td>
+<td align="left">Sydney</td>
+<td align="center">7</td>
+<td align="center">2015-05-10</td>
+<td align="center">2017-03-03</td>
+</tr>
+<tr class="odd">
+<td align="left">Australia</td>
+<td align="left">Victoria</td>
+<td align="left">Melbourne</td>
+<td align="center">7</td>
+<td align="center">2015-07-18</td>
+<td align="center">2016-12-05</td>
+</tr>
+<tr class="even">
+<td align="left">Austria</td>
+<td align="left">Vienna</td>
+<td align="left">Vienna</td>
+<td align="center">1</td>
+<td align="center">2015-07-18</td>
+<td align="center">2015-07-18</td>
+</tr>
+<tr class="odd">
+<td align="left">Belgium</td>
+<td align="left">Brussels</td>
+<td align="left">Brussels</td>
+<td align="center">1</td>
+<td align="center">2015-10-03</td>
+<td align="center">2015-10-03</td>
+</tr>
+<tr class="even">
+<td align="left">Belgium</td>
+<td align="left">Flemish Region</td>
+<td align="left">Antwerp</td>
+<td align="center">1</td>
+<td align="center">2015-10-03</td>
+<td align="center">2015-10-03</td>
+</tr>
+<tr class="odd">
+<td align="left">Canada</td>
+<td align="left">British Columbia</td>
+<td align="left">Vancouver</td>
+<td align="center">2</td>
+<td align="center">2015-11-07</td>
+<td align="center">2015-12-03</td>
+</tr>
+<tr class="even">
+<td align="left">Canada</td>
+<td align="left">British Columbia</td>
+<td align="left">Victoria</td>
+<td align="center">1</td>
+<td align="center">2016-08-01</td>
+<td align="center">2016-08-01</td>
+</tr>
+<tr class="odd">
+<td align="left">Canada</td>
+<td align="left">Ontario</td>
+<td align="left">Toronto</td>
+<td align="center">5</td>
+<td align="center">2015-06-07</td>
+<td align="center">2017-03-03</td>
+</tr>
+<tr class="even">
+<td align="left">Canada</td>
+<td align="left">Quebec</td>
+<td align="left">Montreal</td>
+<td align="center">2</td>
+<td align="center">2015-10-02</td>
+<td align="center">2016-05-04</td>
+</tr>
+<tr class="odd">
+<td align="left">Canada</td>
+<td align="left">Quebec</td>
+<td align="left">Quebec City</td>
+<td align="center">2</td>
+<td align="center">2016-08-09</td>
+<td align="center">2016-09-10</td>
+</tr>
+<tr class="even">
+<td align="left">China</td>
+<td align="left">Hong Kong</td>
+<td align="left">Hong Kong</td>
+<td align="center">1</td>
+<td align="center">2016-08-07</td>
+<td align="center">2016-08-07</td>
+</tr>
+<tr class="odd">
+<td align="left">Denmark</td>
+<td align="left">Hovedstaden</td>
+<td align="left">Copenhagen</td>
+<td align="center">1</td>
+<td align="center">2016-06-28</td>
+<td align="center">2016-06-28</td>
+</tr>
+<tr class="even">
+<td align="left">France</td>
+<td align="left">Ile-de-France</td>
+<td align="left">Paris</td>
+<td align="center">4</td>
+<td align="center">2015-05-06</td>
+<td align="center">2016-07-03</td>
+</tr>
+<tr class="odd">
+<td align="left">Germany</td>
+<td align="left">Berlin</td>
+<td align="left">Berlin</td>
+<td align="center">1</td>
+<td align="center">2015-10-03</td>
+<td align="center">2015-10-03</td>
+</tr>
+<tr class="even">
+<td align="left">Greece</td>
+<td align="left">Attica</td>
+<td align="left">Athens</td>
+<td align="center">1</td>
+<td align="center">2015-07-17</td>
+<td align="center">2015-07-17</td>
+</tr>
+<tr class="odd">
+<td align="left">Ireland</td>
+<td align="left">Leinster</td>
+<td align="left">Dublin</td>
+<td align="center">3</td>
+<td align="center">2016-01-06</td>
+<td align="center">2017-02-18</td>
+</tr>
+<tr class="even">
+<td align="left">Italy</td>
+<td align="left">Trentino-Alto Adige, Sudtirol</td>
+<td align="left">Trentino</td>
+<td align="center">1</td>
+<td align="center">2015-10-12</td>
+<td align="center">2015-10-12</td>
+</tr>
+<tr class="odd">
+<td align="left">Italy</td>
+<td align="left">Veneto</td>
+<td align="left">Venice</td>
+<td align="center">1</td>
+<td align="center">2015-07-18</td>
+<td align="center">2015-07-18</td>
+</tr>
+<tr class="even">
+<td align="left">Spain</td>
+<td align="left">Catalonia</td>
+<td align="left">Barcelona</td>
+<td align="center">6</td>
+<td align="center">2015-04-30</td>
+<td align="center">2016-12-08</td>
+</tr>
+<tr class="odd">
+<td align="left">Spain</td>
+<td align="left">Comunidad de Madrid</td>
+<td align="left">Madrid</td>
+<td align="center">4</td>
+<td align="center">2015-07-17</td>
+<td align="center">2017-03-06</td>
+</tr>
+<tr class="even">
+<td align="left">Spain</td>
+<td align="left">Islas Baleares</td>
+<td align="left">Mallorca</td>
+<td align="center">2</td>
+<td align="center">2016-01-06</td>
+<td align="center">2017-03-15</td>
+</tr>
+<tr class="odd">
+<td align="left">Switzerland</td>
+<td align="left">Geneva</td>
+<td align="left">Geneva</td>
+<td align="center">1</td>
+<td align="center">2016-08-06</td>
+<td align="center">2016-08-06</td>
+</tr>
+<tr class="even">
+<td align="left">The Netherlands</td>
+<td align="left">North Holland</td>
+<td align="left">Amsterdam</td>
+<td align="center">6</td>
+<td align="center">2015-04-05</td>
+<td align="center">2017-03-02</td>
+</tr>
+<tr class="odd">
+<td align="left">United Kingdom</td>
+<td align="left">England</td>
+<td align="left">London</td>
+<td align="center">6</td>
+<td align="center">2015-04-06</td>
+<td align="center">2017-03-04</td>
+</tr>
+<tr class="even">
+<td align="left">United Kingdom</td>
+<td align="left">England</td>
+<td align="left">Manchester</td>
+<td align="center">1</td>
+<td align="center">2016-04-10</td>
+<td align="center">2016-04-10</td>
+</tr>
+<tr class="odd">
+<td align="left">United Kingdom</td>
+<td align="left">Scotland</td>
+<td align="left">Edinburgh</td>
+<td align="center">1</td>
+<td align="center">2016-07-09</td>
+<td align="center">2016-07-09</td>
+</tr>
+<tr class="even">
+<td align="left">United States</td>
+<td align="left">California</td>
+<td align="left">Los Angeles</td>
+<td align="center">9</td>
+<td align="center">2015-05-24</td>
+<td align="center">2017-03-02</td>
+</tr>
+<tr class="odd">
+<td align="left">United States</td>
+<td align="left">California</td>
+<td align="left">Oakland</td>
+<td align="center">2</td>
+<td align="center">2015-06-22</td>
+<td align="center">2016-05-04</td>
+</tr>
+<tr class="even">
+<td align="left">United States</td>
+<td align="left">California</td>
+<td align="left">San Diego</td>
+<td align="center">2</td>
+<td align="center">2015-06-22</td>
+<td align="center">2016-07-07</td>
+</tr>
+<tr class="odd">
+<td align="left">United States</td>
+<td align="left">California</td>
+<td align="left">San Francisco</td>
+<td align="center">6</td>
+<td align="center">2015-05-04</td>
+<td align="center">2017-03-02</td>
+</tr>
+<tr class="even">
+<td align="left">United States</td>
+<td align="left">California</td>
+<td align="left">Santa Cruz County</td>
+<td align="center">1</td>
+<td align="center">2015-10-15</td>
+<td align="center">2015-10-15</td>
+</tr>
+<tr class="odd">
+<td align="left">United States</td>
+<td align="left">Colorado</td>
+<td align="left">Denver</td>
+<td align="center">1</td>
+<td align="center">2016-05-16</td>
+<td align="center">2016-05-16</td>
+</tr>
+<tr class="even">
+<td align="left">United States</td>
+<td align="left">District of Columbia</td>
+<td align="left">Washington DC</td>
+<td align="center">1</td>
+<td align="center">2015-10-03</td>
+<td align="center">2015-10-03</td>
+</tr>
+<tr class="odd">
+<td align="left">United States</td>
+<td align="left">Illinois</td>
+<td align="left">Chicago</td>
+<td align="center">1</td>
+<td align="center">2015-10-03</td>
+<td align="center">2015-10-03</td>
+</tr>
+<tr class="even">
+<td align="left">United States</td>
+<td align="left">Louisiana</td>
+<td align="left">New Orleans</td>
+<td align="center">8</td>
+<td align="center">2015-06-05</td>
+<td align="center">2017-03-04</td>
+</tr>
+<tr class="odd">
+<td align="left">United States</td>
+<td align="left">Massachusetts</td>
+<td align="left">Boston</td>
+<td align="center">2</td>
+<td align="center">2015-10-03</td>
+<td align="center">2016-09-07</td>
+</tr>
+<tr class="even">
+<td align="left">United States</td>
+<td align="left">New York</td>
+<td align="left">New York City</td>
+<td align="center">20</td>
+<td align="center">2015-01-01</td>
+<td align="center">2017-03-02</td>
+</tr>
+<tr class="odd">
+<td align="left">United States</td>
+<td align="left">North Carolina</td>
+<td align="left">Asheville</td>
+<td align="center">1</td>
+<td align="center">2016-04-18</td>
+<td align="center">2016-04-18</td>
+</tr>
+<tr class="even">
+<td align="left">United States</td>
+<td align="left">Oregon</td>
+<td align="left">Portland</td>
+<td align="center">5</td>
+<td align="center">2015-03-01</td>
+<td align="center">2016-07-04</td>
+</tr>
+<tr class="odd">
+<td align="left">United States</td>
+<td align="left">Tennessee</td>
+<td align="left">Nashville</td>
+<td align="center">3</td>
+<td align="center">2015-06-22</td>
+<td align="center">2016-09-06</td>
+</tr>
+<tr class="even">
+<td align="left">United States</td>
+<td align="left">Texas</td>
+<td align="left">Austin</td>
+<td align="center">2</td>
+<td align="center">2015-05-23</td>
+<td align="center">2015-11-07</td>
+</tr>
+<tr class="odd">
+<td align="left">United States</td>
+<td align="left">Washington</td>
+<td align="left">Seattle</td>
+<td align="center">2</td>
+<td align="center">2015-06-22</td>
+<td align="center">2016-01-04</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="listings-growth" class="section level3">
+<h3>Listings Growth by City</h3>
+<p>Now, let’s look at some simple growth plots for total listings. We’ll restrict the eligible cities to only cities where the total count of listings was equal to or greater than 10,000 in at least one of the data scrapes. We’ll also distinguish between growth in total listings and growth in listings where the room type is listed as ‘Entire home/apt’. These are the room types which are most analagous to a standard hotel room. The other room types are ‘Private room’ and ‘Shared room’.</p>
+<pre class="r"><code>load(&#39;data/scrape.RData&#39;)
+scrape &lt;- scrape %&gt;% group_by(Country, State, City, DataScrapeDate) %&gt;%
+          mutate(TotalListings = sum(ListingsCount)) %&gt;%
+          group_by(Country, State, City) %&gt;% mutate(MaxListings = max(TotalListings)) %&gt;%
+          filter(MaxListings &gt;= 20000) %&gt;% filter(RoomType == &#39;Entire home/apt&#39;) %&gt;%
+          group_by(Country, State, City, DataScrapeDate, RoomType) %&gt;%
+          mutate(EntireHomeAptListings = sum(ListingsCount)) %&gt;% ungroup() %&gt;%
+          select(Country, State, City, DataScrapeDate, MaxListings, TotalListings, EntireHomeAptListings) %&gt;%
+          distinct() %&gt;% gather(ListingsType, Count, 6:7)
+p &lt;- ggplot(scrape, aes(x = DataScrapeDate, y = Count, group = ListingsType)) +
+     geom_line(aes(color = ListingsType)) + facet_grid(City ~ .) +
+     xlab(&#39;Data Scrape Date&#39;) + ylab(&#39;Listings Count&#39;) + ggtitle(&#39;Total Listings by City&#39;) +
+     theme_bw() + theme(legend.position = &#39;bottom&#39;) + labs(color = &#39;Listings Type&#39;) +
+     scale_y_continuous(labels = function(x) format(x, big.mark = &#39;,&#39;, scientific = FALSE))
+print(p)</code></pre>
+<p><img src="Airbnb_files/figure-html/listings_growth-1.png" /><!-- --></p>
+<p>Embedded below is a Tableau workbook displaying listings growth by city, using raw HTML inside the markdown document.</p>
+
+<div class='tableauPlaceholder' id='viz1492477398154' style='position: relative'>
+	<noscript>
+		<a href='#'>
+			<img alt='Listings Growth by City' src='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;Li&#47;ListingsGrowthbyCity&#47;ListingsGrowthbyCity&#47;1_rss.png' style='border: none' />
+		</a>
+	</noscript>
+	<object class='tableauViz' style='display: none;'>
+		<param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' />
+		<param name='site_root' value='' />
+		<param name='name' value='ListingsGrowthbyCity&#47;ListingsGrowthbyCity' />
+		<param name='tabs' value='no' />
+		<param name='toolbar' value='yes' />
+		<param name='static_image' value='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;Li&#47;ListingsGrowthbyCity&#47;ListingsGrowthbyCity&#47;1.png' />
+		<param name='animate_transition' value='yes' />
+		<param name='display_static_image' value='yes' />
+		<param name='display_spinner' value='yes' />
+		<param name='display_overlay' value='yes' />
+		<param name='display_count' value='yes' />
+	</object>
+</div>
+<script type='text/javascript'>
+	var divElement = document.getElementById('viz1492477398154');
+	var vizElement = divElement.getElementsByTagName('object')[0];
+	vizElement.style.width = '100%';
+	vizElement.style.height = (divElement.offsetWidth * 0.75) + 'px';
+	var scriptElement = document.createElement('script');
+	scriptElement.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';
+	vizElement.parentNode.insertBefore(scriptElement, vizElement);
+</script>
+
+<p><strong>Tableau Listings Growth by City</strong></p>
 <pre class="r"><code># Disconnect from MySQL database
 dbDisconnect(abnb_db)</code></pre>
 </div>
