@@ -3,30 +3,34 @@
 
 ## Table of Contents {#toc}
 
-1. [R Environment Information](#environment)
-2. [Data Processing I: SQLite](#sqlite)
+1. [Summary](#summary)
+2. [R Environment Information](#environment)
+3. [Data Processing I: SQLite](#sqlite)
     + [Overview](#overview-sqlite)
     + [Table Creation](#table-sqlite)
     + [Calendar Load](#calendar-sqlite)
     + [Listings Load](#listings-sqlite)
     + [Reviews Load](#reviews-sqlite)
     + [Index Creation](#index-sqlite)
-3. [Data Processing II: MySQL Web Server](#mysql)
+4. [Data Processing II: MySQL Web Server](#mysql)
     + [Overview](#overview-mysql)
     + [Table Creation](#table-mysql)
     + [Calendar Load](#calendar-mysql)
     + [Listings Load](#listings-mysql)
     + [Reviews Load](#reviews-mysql)
     + [Index Creation](#index-mysql)
-4. [Analysis](#analysis)
+5. [Analysis](#analysis)
     + [Overview](#overview-analysis)
     + [Data Scrapes by City Plot](#data-scrapes-plot)
     + [Data Scrapes by City Table](#data-scrapes-table)
     + [Listings Growth by City](#listings-growth)
+    + [Distinct Host Growth by City](#host-growth)
 
 ## Summary {#summary}
+([Back to Table of Contents](#toc))
 
 ## R Environment Information {#environment}
+([Back to Table of Contents](#toc))
 
 
 ```r
@@ -55,6 +59,7 @@ nickname       "Sincere Pumpkin Patch"
 ```
 
 ## Data Processing (Overview and SQLite Data Transfer) {#sqlite}
+([Back to Table of Contents](#toc))
 
 Investigate directory structure of data folder, and create scrape metadata from folder names
 
@@ -72,6 +77,7 @@ rownames(dir_df) <- seq.int(1, nrow(dir_df))
 ```
 
 ### Overview {#overview-sqlite}
+([Back to Table of Contents](#toc))
 
 All data used in this analysis was downloaded from the [Inside Airbnb](http://insideairbnb.com/) website. Data files are available in the ['Get the Data'](http://insideairbnb.com/get-the-data.html) section of the website. This analysis uses the listings ('listings.csv.gz'), calendar ('calendar.csv.gz'), and reviews ('reviews.csv.gz') files.
 
@@ -102,6 +108,7 @@ abnb_db <- dbConnect(SQLite(), sqlite_directory)
 ```
 
 ### Table Creation {#table-sqlite}
+([Back to Table of Contents](#toc))
 
 
 ```r
@@ -362,6 +369,7 @@ listings_df_colnames <- data.frame(listings_ds_colnames, listings_db_colnames)
 Loop through all directories (as defined in dir_df matrix), read all gz files, and populate data into the SQLite database
 
 ### Calendar Load {#calendar-sqlite}
+([Back to Table of Contents](#toc))
 
 
 ```r
@@ -405,6 +413,7 @@ if (exists('calendar')) {rm(calendar)}
 ```
 
 ### Listings Load {#listings-sqlite}
+([Back to Table of Contents](#toc))
 
 
 ```r
@@ -480,6 +489,7 @@ if (exists('listings')) {rm(listings)}
 ```
 
 ### Reviews Load {#reviews-sqlite}
+([Back to Table of Contents](#toc))
 
 
 ```r
@@ -525,6 +535,7 @@ dbWriteTable(abnb_db, name = 'Map_DataScrape', value = data_scrape, append = TRU
 ```
 
 ### Index Creation {#index-sqlite}
+([Back to Table of Contents](#toc))
 
 **Optional:** Create database indices for faster querying
 
@@ -579,8 +590,10 @@ dbDisconnect(abnb_db)
 ```
 
 ## Data Processing (AWS MySQL RDS Instance Data Transfer) {#mysql}
+([Back to Table of Contents](#toc))
 
 ### Overview {#overview-mysql}
+([Back to Table of Contents](#toc))
 
 Although merging all bz files into a SQLite database with the proper metadata enables significantly streamlined analysis, this approach towards data management carries significant downsides. The data takes up a large amount of space and is stored twice on disk (once in the assortment of gz files and once in the SQLite database). The analysis is limited by the processing power and memory of the user's computer. Finally, the SQLite database is serverless and therefore must be transferred to another user's computer in order to facilitate data sharing.
 
@@ -623,8 +636,9 @@ abnb_db_mys <- dbConnect(MySQL(), dbname = 'airbnb', username = mysql_user_name,
 ```
 
 ### Table Creation {#table-mysql}
+([Back to Table of Contents](#toc))
 
-Create the MySQL tables if they do not exist
+Create the MySQL tables if they do not exist  
 Field sizes were determined by manually investigating the maximum values (for integer or decimal fields) or the maximum character lengths (for varchar fields) in the SQLite database. Future data may require modifications to the table structure to prevent truncation of data.
 
 
@@ -829,6 +843,7 @@ work_dir_stem <- getwd()
 ```
 
 ### Calendar Load {#calendar-mysql}
+([Back to Table of Contents](#toc))
 
 
 ```r
@@ -876,6 +891,7 @@ if (exists('calendar_rows')) {rm(calendar_rows)}
 ```
 
 ### Listings Load {#listings-mysql}
+([Back to Table of Contents](#toc))
 
 
 ```r
@@ -1337,6 +1353,7 @@ if (exists('listings_rows')) {rm(listings_rows)}
 ```
 
 ### Reviews Load {#reviews-mysql}
+([Back to Table of Contents](#toc))
 
 
 ```r
@@ -1412,6 +1429,7 @@ if (file.exists('scrape_transf.txt')) {file.remove('scrape_transf.txt')}
 ```
 
 ### Index Creation {#index-mysql}
+([Back to Table of Contents](#toc))
 
 **Optional:** Create database indices for faster querying  
 MySQL has no CREATE INDEX IF NOT EXISTS functionality, so do not run this code chunk if the indices already exists.
@@ -1468,10 +1486,12 @@ dbDisconnect(abnb_db_mys)
 ```
 
 ## Analysis {#analysis}
+([Back to Table of Contents](#toc))
 
 Before beginning the analysis, we must consider some facts about the data and assumptions required to calculate unavailable metrics.
 
 ### Overview {#overview-analysis}
+([Back to Table of Contents](#toc))
 
 **Data information**
 
@@ -1496,7 +1516,7 @@ Before beginning the analysis, we must consider some facts about the data and as
 
 1. San Francisco uses 5.5 nights as the average length of stay, a value reported by Airbnb.
 2. An average of 3 nights is used for all other locations.
-3. If a listing has higher minimum nights that the average length of stay, the minimum nights for that listing is used instead.
+3. If a listing has higher minimum nights than the average length of stay, the minimum nights for that listing is used instead.
 
 Because of the size of the data source, pre-aggregated data was generally retrieved from the web server through SQL queries. This data was then written to RData files to enable Tableau reporting off of the data, in addition to the visualizations created through the ggplot2 package.
 
@@ -1530,6 +1550,7 @@ dir.create('data', showWarnings = FALSE)
 First, let's inspect the characteristics of our data scrapes. Understanding our source data will help drive the analysis.
 
 ### Data Scrapes by City Plot {#data-scrapes-plot}
+([Back to Table of Contents](#toc))
 
 
 ```r
@@ -1573,6 +1594,7 @@ print(p)
 ![](Airbnb_files/figure-html/scrape_plot-1.png)<!-- -->
 
 ### Data Scrapes by City Table {#data-scrapes-table}
+([Back to Table of Contents](#toc))
 
 
 ```r
@@ -1634,8 +1656,9 @@ United States     Texas                           Austin                       2
 United States     Washington                      Seattle                      2                2015-06-22           2016-01-04    
 
 ### Listings Growth by City {#listings-growth}
+([Back to Table of Contents](#toc))
 
-Now, let's look at some simple growth plots for total listings. We'll restrict the eligible cities to only cities where the total count of listings was equal to or greater than 10,000 in at least one of the data scrapes. We'll also distinguish between growth in total listings and growth in listings where the room type is listed as 'Entire home/apt'. These are the room types which are most analagous to a standard hotel room. The other room types are 'Private room' and 'Shared room'.
+Now, let's look at some simple growth plots for total listings. We'll restrict the eligible cities to only cities where the total count of listings was equal to or greater than 20,000 in at least one of the data scrapes. We'll also distinguish between growth in total listings and growth in listings where the room type is listed as 'Entire home/apt'. These are the room types which are most analagous to a standard hotel room. The other room types are 'Private room' and 'Shared room'.
 
 
 ```r
@@ -1648,8 +1671,24 @@ scrape <- scrape %>% group_by(Country, State, City, DataScrapeDate) %>%
           mutate(EntireHomeAptListings = sum(ListingsCount)) %>% ungroup() %>%
           select(Country, State, City, DataScrapeDate, MaxListings, TotalListings, EntireHomeAptListings) %>%
           distinct() %>% gather(ListingsType, Count, 6:7)
+nystart <- as.numeric(scrape[which(scrape$City == 'New York City' & scrape$DataScrapeDate == '2016-07-02' &
+                                   scrape$ListingsType == 'TotalListings'), 7])
+nyend <- as.numeric(scrape[which(scrape$City == 'New York City' & scrape$DataScrapeDate == '2017-03-02' &
+                                 scrape$ListingsType == 'TotalListings'), 7])
+lastart <- as.numeric(scrape[which(scrape$City == 'Los Angeles' & scrape$DataScrapeDate == '2016-08-03' &
+                                   scrape$ListingsType == 'TotalListings'), 7])
+laend <- as.numeric(scrape[which(scrape$City == 'Los Angeles' & scrape$DataScrapeDate == '2017-03-02' &
+                                 scrape$ListingsType == 'TotalListings'), 7])
+parstart <- as.numeric(scrape[which(scrape$City == 'Paris' & scrape$DataScrapeDate == '2016-02-02' &
+                                    scrape$ListingsType == 'TotalListings'), 7])
+parend <- as.numeric(scrape[which(scrape$City == 'Paris' & scrape$DataScrapeDate == '2016-07-03' &
+                                  scrape$ListingsType == 'TotalListings'), 7])
+lonstart <- as.numeric(scrape[which(scrape$City == 'London' & scrape$DataScrapeDate == '2016-06-02' &
+                                    scrape$ListingsType == 'TotalListings'), 7])
+lonend <- as.numeric(scrape[which(scrape$City == 'London' & scrape$DataScrapeDate == '2017-03-04' &
+                                  scrape$ListingsType == 'TotalListings'), 7])
 p <- ggplot(scrape, aes(x = DataScrapeDate, y = Count, group = ListingsType)) +
-     geom_line(aes(color = ListingsType)) + facet_grid(City ~ .) +
+     geom_line(aes(color = ListingsType)) + geom_point(aes(color = ListingsType)) + facet_grid(City ~ .) +
      xlab('Data Scrape Date') + ylab('Listings Count') + ggtitle('Total Listings by City') +
      theme_bw() + theme(legend.position = 'bottom') + labs(color = 'Listings Type') +
      scale_y_continuous(labels = function(x) format(x, big.mark = ',', scientific = FALSE))
@@ -1658,7 +1697,7 @@ print(p)
 
 ![](Airbnb_files/figure-html/listings_growth-1.png)<!-- -->
 
-Embedded below is a Tableau workbook displaying listings growth by city, using raw HTML inside the markdown document.
+Embedded below is a Tableau workbook displaying listings growth by city.
 
 <!--html_preserve-->
 <div class='tableauPlaceholder' id='viz1492477398154' style='position: relative'>
@@ -1691,14 +1730,68 @@ Embedded below is a Tableau workbook displaying listings growth by city, using r
 	vizElement.parentNode.insertBefore(scriptElement, vizElement);
 </script>
 <!--/html_preserve-->
+--------------------------------------------------
 
-**Tableau Listings Growth by City**
+Of note is the difference in listings growth in Europe (Paris and London) against the United States (New York City and Los Angeles). Between February 02, 2016 and July 03, 2016, listings in Paris grew by 11,249, equaling a linear growth rate of 2,220.2 listings per month. Between June 02, 2016 and March 04, 2017, listings in London grew by 11,258, equaling a linear growth rate of 1,228.1 listings per month.
+
+In the United States, growth seems to have slowed. Between July 02, 2016 and March 02, 2017, listings in New York City grew by 1,776, equaling a linear growth rate of 195.2 listings per month. Between August 03, 2016 and March 02, 2017, listings in Los Angeles shrunk by -2,708, equaling a linear growth rate of -385.0 listings per month.
+
+Listings per capita for the United States cities is 0.00207 for a population of 19.6m in New York City and 0.00182 for a population of 12.8m in Los Angeles as of the last scrape in the above calculations (populations equal to metro area populations from 2010 US Census). Listings per capita for the European cities is 0.00439 for a population of 12.0m in Paris and 0.00395 for a population of 13.7m in London as of the last scrape in the above calculations (populations equal to metro area populations from Eurostat 2014).
+
+A possible explanation for the slower linear listings growth in the United States despite lower listings per capita and larger or comparable populations is the recent regulations passed against home sharing in the US.
+
+### Distinct Host Growth by City {#host-growth}
+([Back to Table of Contents](#toc))
+
+Another way to assess Airbnb's inventory is through analysis of their host network. Although the service is generally marketed as a way for individuals to make a side income by sharing their residence(s), many hosts use the service as a primary source of income by permanently sharing multiple locations. Much of the recent regulations passed against Airbnb have been designed to combat this practice, and save residences from being permanently occupied by transient guests. We'll restrict the eligible cities to only cities where the total count of hosts was equal to or greater than 16,000 in at least one of the data scrapes.
 
 
+```r
+host_sql <- 'SELECT
+                 a.Country
+                 ,a.State
+                 ,a.City
+                 ,a.DataScrapeDate
+                 ,a.ListingCount AS HostListingCount
+                 ,COUNT(*) AS HostCount
+             FROM
+                 (SELECT
+                     ds.Country
+                     ,ds.State
+                     ,ds.City
+                     ,ds.DataScrapeDate
+                     ,hs.HostID
+                     ,COUNT(*) AS ListingCount
+                 FROM Map_DataScrape AS ds
+                     INNER JOIN Listings AS hs ON ds.DataScrape_ID = hs.DataScrape_ID
+                 GROUP BY 1, 2, 3, 4, 5) AS a
+             GROUP BY 1, 2, 3, 4, 5;'
+host_sql_fetch <- dbSendQuery(abnb_db, host_sql)
+host <- dbFetch(host_sql_fetch, n = -1)
+dbClearResult(host_sql_fetch)
+host$Country <- as.factor(host$Country)
+host$State <- as.factor(host$State)
+host$City <- as.factor(host$City)
+host$DataScrapeDate <- as.Date(host$DataScrapeDate)
+save(host, file = 'data/host.RData')
+```
 
 
+```r
+load('data/host.RData')
+host <- host %>% group_by(Country, State, City, DataScrapeDate) %>% mutate(TotalHosts = sum(HostCount)) %>%
+        group_by(Country, State, City) %>% mutate(MaxHosts = max(TotalHosts)) %>%
+        filter(MaxHosts >= 16000) %>% ungroup() %>%
+        select(Country, State, City, DataScrapeDate, MaxHosts, TotalHosts) %>%
+        distinct()
+p <- ggplot(host, aes(x = DataScrapeDate, y = TotalHosts)) +
+     geom_line() + geom_point() + facet_grid(City ~ .) +
+     xlab('Data Scrape Date') + ylab('Host Count') + ggtitle('Total Hosts by City') +
+     theme_bw() + scale_y_continuous(labels = function(x) format(x, big.mark = ',', scientific = FALSE))
+print(p)
+```
 
-
+![](Airbnb_files/figure-html/host_growth-1.png)<!-- -->
 
 
 

@@ -124,6 +124,7 @@ $(document).ready(function () {
 <div id="toc" class="section level2">
 <h2>Table of Contents</h2>
 <ol style="list-style-type: decimal">
+<li><a href="#summary">Summary</a></li>
 <li><a href="#environment">R Environment Information</a></li>
 <li><a href="#sqlite">Data Processing I: SQLite</a>
 <ul>
@@ -149,14 +150,17 @@ $(document).ready(function () {
 <li><a href="#data-scrapes-plot">Data Scrapes by City Plot</a></li>
 <li><a href="#data-scrapes-table">Data Scrapes by City Table</a></li>
 <li><a href="#listings-growth">Listings Growth by City</a></li>
+<li><a href="#host-growth">Distinct Host Growth by City</a></li>
 </ul></li>
 </ol>
 </div>
 <div id="summary" class="section level2">
 <h2>Summary</h2>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 </div>
 <div id="environment" class="section level2">
 <h2>R Environment Information</h2>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <pre class="r"><code># R and system environment information
 sys_env &lt;- t(as.data.frame(R.Version()))
 colnames(sys_env) &lt;- c(&#39;Value&#39;)
@@ -179,6 +183,7 @@ nickname       &quot;Sincere Pumpkin Patch&quot;       </code></pre>
 </div>
 <div id="sqlite" class="section level2">
 <h2>Data Processing (Overview and SQLite Data Transfer)</h2>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <p>Investigate directory structure of data folder, and create scrape metadata from folder names</p>
 <pre class="r"><code># Directory for data folder
 data_directory &lt;- &#39;C:/Airbnb&#39;
@@ -191,6 +196,7 @@ colnames(dir_df) &lt;- c(&#39;Country&#39;, &#39;State&#39;, &#39;City&#39;, &#3
 rownames(dir_df) &lt;- seq.int(1, nrow(dir_df))</code></pre>
 <div id="overview-sqlite" class="section level3">
 <h3>Overview</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <p>All data used in this analysis was downloaded from the <a href="http://insideairbnb.com/">Inside Airbnb</a> website. Data files are available in the <a href="http://insideairbnb.com/get-the-data.html">‘Get the Data’</a> section of the website. This analysis uses the listings (‘listings.csv.gz’), calendar (‘calendar.csv.gz’), and reviews (‘reviews.csv.gz’) files.</p>
 <p>Data files were downloaded from the <a href="http://insideairbnb.com/">Inside Airbnb</a> website and placed in a local directory, with a child-folder structure of [Country]/[State]/[City]/[Data Scrape Date (‘YYYY-MM-DD’)]/[GZ File]. The directory structure used the city, state, and country names from the headers of each scraped city on the <a href="http://insideairbnb.com/get-the-data.html">‘Get the Data’</a> page of the <a href="http://insideairbnb.com/">Inside Airbnb</a> website. All files for all scrapes of all cities were downloaded as of March 15, 2017, barring the December 02, 2015 scrape of New York City (this scrape contained a broken link for the calendar file). This data encompassed 136 data scrapes for 43 distinct cities. Older scrapes for each city can be removed to cut down on the data size substantially.</p>
 <p>This code uses the directory structure of the data folder to construct the metadata for the scraped data. It is therefore imperative that the directory structure is properly set-up. The listings, calendar, and reviews files must retain their original file names.</p>
@@ -205,6 +211,7 @@ abnb_db &lt;- dbConnect(SQLite(), sqlite_directory)</code></pre>
 </div>
 <div id="table-sqlite" class="section level3">
 <h3>Table Creation</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <pre class="r"><code># Create tables if they do not exist
 calendar_create &lt;- &#39;CREATE TABLE IF NOT EXISTS Calendar (
                         Calendar_ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL UNIQUE,
@@ -439,6 +446,7 @@ listings_df_colnames &lt;- data.frame(listings_ds_colnames, listings_db_colnames
 </div>
 <div id="calendar-sqlite" class="section level3">
 <h3>Calendar Load</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <pre class="r"><code># Read calendar data and populate into SQLite database
 loop &lt;- 1 + max_scrape
 while (loop &lt;= (max_scrape + nrow(dir_df))) {
@@ -479,6 +487,7 @@ if (exists(&#39;calendar&#39;)) {rm(calendar)}</code></pre>
 </div>
 <div id="listings-sqlite" class="section level3">
 <h3>Listings Load</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <pre class="r"><code># Read listings data and populate into SQLite database
 loop &lt;- 1 + max_scrape
 while (loop &lt;= (max_scrape + nrow(dir_df))) {
@@ -551,6 +560,7 @@ if (exists(&#39;listings&#39;)) {rm(listings)}</code></pre>
 </div>
 <div id="reviews-sqlite" class="section level3">
 <h3>Reviews Load</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <pre class="r"><code># Read reviews data and populate into SQLite database
 loop &lt;- 1 + max_scrape
 while (loop &lt;= (max_scrape + nrow(dir_df))) {
@@ -589,6 +599,7 @@ dbWriteTable(abnb_db, name = &#39;Map_DataScrape&#39;, value = data_scrape, appe
 </div>
 <div id="index-sqlite" class="section level3">
 <h3>Index Creation</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <p><strong>Optional:</strong> Create database indices for faster querying</p>
 <pre class="r"><code># Data scrape ID indices
 idx_datascrape_id &lt;- &#39;CREATE INDEX IF NOT EXISTS idx_DataScrape_ID ON Map_DataScrape (
@@ -635,8 +646,10 @@ dbDisconnect(abnb_db)</code></pre>
 </div>
 <div id="mysql" class="section level2">
 <h2>Data Processing (AWS MySQL RDS Instance Data Transfer)</h2>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <div id="overview-mysql" class="section level3">
 <h3>Overview</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <p>Although merging all bz files into a SQLite database with the proper metadata enables significantly streamlined analysis, this approach towards data management carries significant downsides. The data takes up a large amount of space and is stored twice on disk (once in the assortment of gz files and once in the SQLite database). The analysis is limited by the processing power and memory of the user’s computer. Finally, the SQLite database is serverless and therefore must be transferred to another user’s computer in order to facilitate data sharing.</p>
 <p>Transferring the data to a server-based RDBMS solves these problems. Below, the data from the SQLite database will be moved to a MySQL server on an AWS RDS instance owned by the analysis author. There is no need for the SQLite database to server as an intermediary, however. In this analysis, the data will be moved out of the SQLite database and into the MySQL server simply to reduce duplication of code. Below are documented the steps required to alter the code in the ‘Data Processing’ sections of this analysis to move the data straight from the bz files into the MySQL server.</p>
 <ol style="list-style-type: decimal">
@@ -672,7 +685,9 @@ abnb_db_mys &lt;- dbConnect(MySQL(), dbname = &#39;airbnb&#39;, username = mysql
 </div>
 <div id="table-mysql" class="section level3">
 <h3>Table Creation</h3>
-<p>Create the MySQL tables if they do not exist Field sizes were determined by manually investigating the maximum values (for integer or decimal fields) or the maximum character lengths (for varchar fields) in the SQLite database. Future data may require modifications to the table structure to prevent truncation of data.</p>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
+<p>Create the MySQL tables if they do not exist<br />
+Field sizes were determined by manually investigating the maximum values (for integer or decimal fields) or the maximum character lengths (for varchar fields) in the SQLite database. Future data may require modifications to the table structure to prevent truncation of data.</p>
 <pre class="r"><code># Create tables if they do not exist
 calendar_create &lt;- &#39;CREATE TABLE IF NOT EXISTS airbnb.Calendar (
                         Calendar_ID INT NOT NULL AUTO_INCREMENT,
@@ -850,6 +865,7 @@ Reviews   25220866</code></pre>
 </div>
 <div id="calendar-mysql" class="section level3">
 <h3>Calendar Load</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <pre class="r"><code>loop &lt;- 0
 batch_size &lt;- 5000000
 work_dir &lt;- paste(work_dir_stem, &#39;/calendar_transf.txt&#39;, sep = &#39;&#39;)
@@ -894,6 +910,7 @@ if (exists(&#39;calendar_rows&#39;)) {rm(calendar_rows)}</code></pre>
 </div>
 <div id="listings-mysql" class="section level3">
 <h3>Listings Load</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <pre class="r"><code>loop &lt;- 0
 batch_size &lt;- 100000
 work_dir &lt;- paste(work_dir_stem, &#39;/listings_transf.txt&#39;, sep = &#39;&#39;)
@@ -1352,6 +1369,7 @@ if (exists(&#39;listings_rows&#39;)) {rm(listings_rows)}</code></pre>
 </div>
 <div id="reviews-mysql" class="section level3">
 <h3>Reviews Load</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <pre class="r"><code>loop &lt;- 0
 batch_size &lt;- 500000
 work_dir &lt;- paste(work_dir_stem, &#39;/reviews_transf.txt&#39;, sep = &#39;&#39;)
@@ -1420,6 +1438,7 @@ if (file.exists(&#39;scrape_transf.txt&#39;)) {file.remove(&#39;scrape_transf.tx
 </div>
 <div id="index-mysql" class="section level3">
 <h3>Index Creation</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <p><strong>Optional:</strong> Create database indices for faster querying<br />
 MySQL has no CREATE INDEX IF NOT EXISTS functionality, so do not run this code chunk if the indices already exists.</p>
 <pre class="r"><code># Data scrape ID indices
@@ -1468,9 +1487,11 @@ dbDisconnect(abnb_db_mys)</code></pre>
 </div>
 <div id="analysis" class="section level2">
 <h2>Analysis</h2>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <p>Before beginning the analysis, we must consider some facts about the data and assumptions required to calculate unavailable metrics.</p>
 <div id="overview-analysis" class="section level3">
 <h3>Overview</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <p><strong>Data information</strong></p>
 <ol style="list-style-type: decimal">
 <li>Data utilizes public information compiled from the Airbnb website (hosted on the <a href="http://insideairbnb.com/">Inside Airbnb</a> website).</li>
@@ -1498,7 +1519,7 @@ dbDisconnect(abnb_db_mys)</code></pre>
 <ol style="list-style-type: decimal">
 <li>San Francisco uses 5.5 nights as the average length of stay, a value reported by Airbnb.</li>
 <li>An average of 3 nights is used for all other locations.</li>
-<li>If a listing has higher minimum nights that the average length of stay, the minimum nights for that listing is used instead.</li>
+<li>If a listing has higher minimum nights than the average length of stay, the minimum nights for that listing is used instead.</li>
 </ol>
 <p>Because of the size of the data source, pre-aggregated data was generally retrieved from the web server through SQL queries. This data was then written to RData files to enable Tableau reporting off of the data, in addition to the visualizations created through the ggplot2 package.</p>
 <pre class="r"><code>library(RMySQL)
@@ -1520,6 +1541,7 @@ abnb_db &lt;- dbConnect(MySQL(), dbname = &#39;airbnb&#39;, username = mysql_use
 </div>
 <div id="data-scrapes-plot" class="section level3">
 <h3>Data Scrapes by City Plot</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <pre class="r"><code>scrape_sql &lt;- &#39;SELECT
                    ds.Country
                    ,ds.State
@@ -1555,6 +1577,7 @@ print(p)</code></pre>
 </div>
 <div id="data-scrapes-table" class="section level3">
 <h3>Data Scrapes by City Table</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <pre class="r"><code>load(&#39;data/scrape.RData&#39;)
 scrape &lt;- scrape %&gt;% group_by(Country, State, City) %&gt;%
           summarize(TotalDataScrapes = n_distinct(DataScrapeDate), FirstDataScrape = min(DataScrapeDate),
@@ -1923,7 +1946,8 @@ kable(scrape, align = c(&#39;l&#39;, &#39;l&#39;, &#39;l&#39;, &#39;c&#39;, &#39
 </div>
 <div id="listings-growth" class="section level3">
 <h3>Listings Growth by City</h3>
-<p>Now, let’s look at some simple growth plots for total listings. We’ll restrict the eligible cities to only cities where the total count of listings was equal to or greater than 10,000 in at least one of the data scrapes. We’ll also distinguish between growth in total listings and growth in listings where the room type is listed as ‘Entire home/apt’. These are the room types which are most analagous to a standard hotel room. The other room types are ‘Private room’ and ‘Shared room’.</p>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
+<p>Now, let’s look at some simple growth plots for total listings. We’ll restrict the eligible cities to only cities where the total count of listings was equal to or greater than 20,000 in at least one of the data scrapes. We’ll also distinguish between growth in total listings and growth in listings where the room type is listed as ‘Entire home/apt’. These are the room types which are most analagous to a standard hotel room. The other room types are ‘Private room’ and ‘Shared room’.</p>
 <pre class="r"><code>load(&#39;data/scrape.RData&#39;)
 scrape &lt;- scrape %&gt;% group_by(Country, State, City, DataScrapeDate) %&gt;%
           mutate(TotalListings = sum(ListingsCount)) %&gt;%
@@ -1933,15 +1957,33 @@ scrape &lt;- scrape %&gt;% group_by(Country, State, City, DataScrapeDate) %&gt;%
           mutate(EntireHomeAptListings = sum(ListingsCount)) %&gt;% ungroup() %&gt;%
           select(Country, State, City, DataScrapeDate, MaxListings, TotalListings, EntireHomeAptListings) %&gt;%
           distinct() %&gt;% gather(ListingsType, Count, 6:7)
+nystart &lt;- as.numeric(scrape[which(scrape$City == &#39;New York City&#39; &amp; scrape$DataScrapeDate == &#39;2016-07-02&#39; &amp;
+                                   scrape$ListingsType == &#39;TotalListings&#39;), 7])
+nyend &lt;- as.numeric(scrape[which(scrape$City == &#39;New York City&#39; &amp; scrape$DataScrapeDate == &#39;2017-03-02&#39; &amp;
+                                 scrape$ListingsType == &#39;TotalListings&#39;), 7])
+lastart &lt;- as.numeric(scrape[which(scrape$City == &#39;Los Angeles&#39; &amp; scrape$DataScrapeDate == &#39;2016-08-03&#39; &amp;
+                                   scrape$ListingsType == &#39;TotalListings&#39;), 7])
+laend &lt;- as.numeric(scrape[which(scrape$City == &#39;Los Angeles&#39; &amp; scrape$DataScrapeDate == &#39;2017-03-02&#39; &amp;
+                                 scrape$ListingsType == &#39;TotalListings&#39;), 7])
+parstart &lt;- as.numeric(scrape[which(scrape$City == &#39;Paris&#39; &amp; scrape$DataScrapeDate == &#39;2016-02-02&#39; &amp;
+                                    scrape$ListingsType == &#39;TotalListings&#39;), 7])
+parend &lt;- as.numeric(scrape[which(scrape$City == &#39;Paris&#39; &amp; scrape$DataScrapeDate == &#39;2016-07-03&#39; &amp;
+                                  scrape$ListingsType == &#39;TotalListings&#39;), 7])
+lonstart &lt;- as.numeric(scrape[which(scrape$City == &#39;London&#39; &amp; scrape$DataScrapeDate == &#39;2016-06-02&#39; &amp;
+                                    scrape$ListingsType == &#39;TotalListings&#39;), 7])
+lonend &lt;- as.numeric(scrape[which(scrape$City == &#39;London&#39; &amp; scrape$DataScrapeDate == &#39;2017-03-04&#39; &amp;
+                                  scrape$ListingsType == &#39;TotalListings&#39;), 7])
 p &lt;- ggplot(scrape, aes(x = DataScrapeDate, y = Count, group = ListingsType)) +
-     geom_line(aes(color = ListingsType)) + facet_grid(City ~ .) +
+     geom_line(aes(color = ListingsType)) + geom_point(aes(color = ListingsType)) + facet_grid(City ~ .) +
      xlab(&#39;Data Scrape Date&#39;) + ylab(&#39;Listings Count&#39;) + ggtitle(&#39;Total Listings by City&#39;) +
      theme_bw() + theme(legend.position = &#39;bottom&#39;) + labs(color = &#39;Listings Type&#39;) +
      scale_y_continuous(labels = function(x) format(x, big.mark = &#39;,&#39;, scientific = FALSE))
 print(p)</code></pre>
 <p><img src="Airbnb_files/figure-html/listings_growth-1.png" /><!-- --></p>
-<p>Embedded below is a Tableau workbook displaying listings growth by city, using raw HTML inside the markdown document.</p>
-
+<p>Embedded below is a Tableau workbook displaying listings growth by city.</p>
+</div>
+</div>
+<div id="
 <div class='tableauPlaceholder' id='viz1492477398154' style='position: relative'>
 	<noscript>
 		<a href='#'>
@@ -1971,8 +2013,85 @@ print(p)</code></pre>
 	scriptElement.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';
 	vizElement.parentNode.insertBefore(scriptElement, vizElement);
 </script>
-
-<p><strong>Tableau Listings Growth by City</strong></p>
+" class="section level2">
+<h2>
+<div class='tableauPlaceholder' id='viz1492477398154' style='position: relative'>
+	<noscript>
+		<a href='#'>
+			<img alt='Listings Growth by City' src='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;Li&#47;ListingsGrowthbyCity&#47;ListingsGrowthbyCity&#47;1_rss.png' style='border: none' />
+		</a>
+	</noscript>
+	<object class='tableauViz' style='display: none;'>
+		<param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' />
+		<param name='site_root' value='' />
+		<param name='name' value='ListingsGrowthbyCity&#47;ListingsGrowthbyCity' />
+		<param name='tabs' value='no' />
+		<param name='toolbar' value='yes' />
+		<param name='static_image' value='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;Li&#47;ListingsGrowthbyCity&#47;ListingsGrowthbyCity&#47;1.png' />
+		<param name='animate_transition' value='yes' />
+		<param name='display_static_image' value='yes' />
+		<param name='display_spinner' value='yes' />
+		<param name='display_overlay' value='yes' />
+		<param name='display_count' value='yes' />
+	</object>
+</div>
+<script type='text/javascript'>
+	var divElement = document.getElementById('viz1492477398154');
+	var vizElement = divElement.getElementsByTagName('object')[0];
+	vizElement.style.width = '100%';
+	vizElement.style.height = (divElement.offsetWidth * 0.75) + 'px';
+	var scriptElement = document.createElement('script');
+	scriptElement.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';
+	vizElement.parentNode.insertBefore(scriptElement, vizElement);
+</script>
+</h2>
+<p>Of note is the difference in listings growth in Europe (Paris and London) against the United States (New York City and Los Angeles). Between February 02, 2016 and July 03, 2016, listings in Paris grew by 11,249, equaling a linear growth rate of 2,220.2 listings per month. Between June 02, 2016 and March 04, 2017, listings in London grew by 11,258, equaling a linear growth rate of 1,228.1 listings per month.</p>
+<p>In the United States, growth seems to have slowed. Between July 02, 2016 and March 02, 2017, listings in New York City grew by 1,776, equaling a linear growth rate of 195.2 listings per month. Between August 03, 2016 and March 02, 2017, listings in Los Angeles shrunk by -2,708, equaling a linear growth rate of -385.0 listings per month.</p>
+<p>Listings per capita for the United States cities is 0.00207 for a population of 19.6m in New York City and 0.00182 for a population of 12.8m in Los Angeles as of the last scrape in the above calculations (populations equal to metro area populations from 2010 US Census). Listings per capita for the European cities is 0.00439 for a population of 12.0m in Paris and 0.00395 for a population of 13.7m in London as of the last scrape in the above calculations (populations equal to metro area populations from Eurostat 2014).</p>
+<p>A possible explanation for the slower linear listings growth in the United States despite lower listings per capita and larger or comparable populations is the recent regulations passed against home sharing in the US.</p>
+<div id="host-growth" class="section level3">
+<h3>Distinct Host Growth by City</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
+<p>Another way to assess Airbnb’s inventory is through analysis of their host network. Although the service is generally marketed as a way for individuals to make a side income by sharing their residence(s), many hosts use the service as a primary source of income by permanently sharing multiple locations. Much of the recent regulations passed against Airbnb have been designed to combat this practice, and save residences from being permanently occupied by transient guests. We’ll restrict the eligible cities to only cities where the total count of hosts was equal to or greater than 16,000 in at least one of the data scrapes.</p>
+<pre class="r"><code>host_sql &lt;- &#39;SELECT
+                 a.Country
+                 ,a.State
+                 ,a.City
+                 ,a.DataScrapeDate
+                 ,a.ListingCount AS HostListingCount
+                 ,COUNT(*) AS HostCount
+             FROM
+                 (SELECT
+                     ds.Country
+                     ,ds.State
+                     ,ds.City
+                     ,ds.DataScrapeDate
+                     ,hs.HostID
+                     ,COUNT(*) AS ListingCount
+                 FROM Map_DataScrape AS ds
+                     INNER JOIN Listings AS hs ON ds.DataScrape_ID = hs.DataScrape_ID
+                 GROUP BY 1, 2, 3, 4, 5) AS a
+             GROUP BY 1, 2, 3, 4, 5;&#39;
+host_sql_fetch &lt;- dbSendQuery(abnb_db, host_sql)
+host &lt;- dbFetch(host_sql_fetch, n = -1)
+dbClearResult(host_sql_fetch)
+host$Country &lt;- as.factor(host$Country)
+host$State &lt;- as.factor(host$State)
+host$City &lt;- as.factor(host$City)
+host$DataScrapeDate &lt;- as.Date(host$DataScrapeDate)
+save(host, file = &#39;data/host.RData&#39;)</code></pre>
+<pre class="r"><code>load(&#39;data/host.RData&#39;)
+host &lt;- host %&gt;% group_by(Country, State, City, DataScrapeDate) %&gt;% mutate(TotalHosts = sum(HostCount)) %&gt;%
+        group_by(Country, State, City) %&gt;% mutate(MaxHosts = max(TotalHosts)) %&gt;%
+        filter(MaxHosts &gt;= 16000) %&gt;% ungroup() %&gt;%
+        select(Country, State, City, DataScrapeDate, MaxHosts, TotalHosts) %&gt;%
+        distinct()
+p &lt;- ggplot(host, aes(x = DataScrapeDate, y = TotalHosts)) +
+     geom_line() + geom_point() + facet_grid(City ~ .) +
+     xlab(&#39;Data Scrape Date&#39;) + ylab(&#39;Host Count&#39;) + ggtitle(&#39;Total Hosts by City&#39;) +
+     theme_bw() + scale_y_continuous(labels = function(x) format(x, big.mark = &#39;,&#39;, scientific = FALSE))
+print(p)</code></pre>
+<p><img src="Airbnb_files/figure-html/host_growth-1.png" /><!-- --></p>
 <pre class="r"><code># Disconnect from MySQL database
 dbDisconnect(abnb_db)</code></pre>
 </div>
