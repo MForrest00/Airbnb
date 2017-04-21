@@ -25,6 +25,7 @@
     + [Data Scrapes by City Table](#data-scrapes-table)
     + [Listings Growth by City](#listings-growth)
     + [Distinct Host Growth by City](#host-growth)
+    + [Percentage of Hosts with More Than One Listing by City](#power-host)
 
 ## Summary {#summary}
 ([Back to Table of Contents](#toc))
@@ -1792,6 +1793,35 @@ print(p)
 ```
 
 ![](Airbnb_files/figure-html/host_growth-1.png)<!-- -->
+
+### Percentage of Hosts with More Than One Listing by City {#power-host}
+([Back to Table of Contents](#toc))
+
+Let's see if we can learn anything about Airbnb's power hosts. First, let's see what percentage of hosts had more than one listing. Let's restrict the cities to only New York City, Los Angeles, Paris, and London.
+
+
+```r
+load('data/host.RData')
+host <- host %>% mutate(PowerHostFlag = ifelse(HostListingCount >= 2, 'PowerHost', 'StandardHost')) %>%
+        group_by(Country, State, City, DataScrapeDate, PowerHostFlag) %>%
+        mutate(GroupHostCount = sum(HostCount)) %>% ungroup() %>%
+        filter(City == 'New York City' | City == 'Los Angeles' | City == 'Paris' | City == 'London') %>%
+        select(Country, State, City, DataScrapeDate, PowerHostFlag, GroupHostCount) %>% distinct() %>%
+        spread(PowerHostFlag, GroupHostCount) %>%
+        mutate(PercentagePowerHost = PowerHost / (PowerHost + StandardHost))
+p <- ggplot(host, aes(x = DataScrapeDate, y = PercentagePowerHost * 100)) +
+     geom_line() + geom_point() + facet_grid(City ~ .) +
+     xlab('Data Scrape Date') + ylab('Power Host Percentage') +
+     ggtitle('Percent of Hosts with > 1 Listing by City') +
+     theme_bw() + scale_y_continuous(labels = function(x) paste(x, '%', sep = ''))
+print(p)
+```
+
+![](Airbnb_files/figure-html/power_host-1.png)<!-- -->
+
+
+
+
 
 
 

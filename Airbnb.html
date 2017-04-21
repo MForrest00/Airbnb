@@ -151,6 +151,7 @@ $(document).ready(function () {
 <li><a href="#data-scrapes-table">Data Scrapes by City Table</a></li>
 <li><a href="#listings-growth">Listings Growth by City</a></li>
 <li><a href="#host-growth">Distinct Host Growth by City</a></li>
+<li><a href="#power-host">Percentage of Hosts with More Than One Listing by City</a></li>
 </ul></li>
 </ol>
 </div>
@@ -2092,6 +2093,26 @@ p &lt;- ggplot(host, aes(x = DataScrapeDate, y = TotalHosts)) +
      theme_bw() + scale_y_continuous(labels = function(x) format(x, big.mark = &#39;,&#39;, scientific = FALSE))
 print(p)</code></pre>
 <p><img src="Airbnb_files/figure-html/host_growth-1.png" /><!-- --></p>
+</div>
+<div id="power-host" class="section level3">
+<h3>Percentage of Hosts with More Than One Listing by City</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
+<p>Let’s see if we can learn anything about Airbnb’s power hosts. First, let’s see what percentage of hosts had more than one listing. Let’s restrict the cities to only New York City, Los Angeles, Paris, and London.</p>
+<pre class="r"><code>load(&#39;data/host.RData&#39;)
+host &lt;- host %&gt;% mutate(PowerHostFlag = ifelse(HostListingCount &gt;= 2, &#39;PowerHost&#39;, &#39;StandardHost&#39;)) %&gt;%
+        group_by(Country, State, City, DataScrapeDate, PowerHostFlag) %&gt;%
+        mutate(GroupHostCount = sum(HostCount)) %&gt;% ungroup() %&gt;%
+        filter(City == &#39;New York City&#39; | City == &#39;Los Angeles&#39; | City == &#39;Paris&#39; | City == &#39;London&#39;) %&gt;%
+        select(Country, State, City, DataScrapeDate, PowerHostFlag, GroupHostCount) %&gt;% distinct() %&gt;%
+        spread(PowerHostFlag, GroupHostCount) %&gt;%
+        mutate(PercentagePowerHost = PowerHost / (PowerHost + StandardHost))
+p &lt;- ggplot(host, aes(x = DataScrapeDate, y = PercentagePowerHost * 100)) +
+     geom_line() + geom_point() + facet_grid(City ~ .) +
+     xlab(&#39;Data Scrape Date&#39;) + ylab(&#39;Power Host Percentage&#39;) +
+     ggtitle(&#39;Percent of Hosts with &gt; 1 Listing by City&#39;) +
+     theme_bw() + scale_y_continuous(labels = function(x) paste(x, &#39;%&#39;, sep = &#39;&#39;))
+print(p)</code></pre>
+<p><img src="Airbnb_files/figure-html/power_host-1.png" /><!-- --></p>
 <pre class="r"><code># Disconnect from MySQL database
 dbDisconnect(abnb_db)</code></pre>
 </div>
