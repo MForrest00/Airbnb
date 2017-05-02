@@ -25,13 +25,16 @@ output:
     + [Listings Load](#listings-mysql)
     + [Reviews Load](#reviews-mysql)
     + [Index Creation](#index-mysql)
-5. [Analysis](#analysis)
+5. [Analysis I: Data Investigation](#analysis1)
     + [Overview](#overview-analysis)
     + [Data Scrapes by City Plot](#data-scrapes-plot)
     + [Data Scrapes by City Table](#data-scrapes-table)
+6. [Analysis II: Inventory and Hosts](#analysis2)
     + [Listings Growth by City](#listings-growth)
     + [Distinct Host Growth by City](#host-growth)
     + [Percentage of Hosts with More Than One Listing by City](#power-host)
+    + [Share of Inventory by Power Host Category](#inv-share)
+    + [Property Types](#prop-type)
 
 ## Summary {#summary}
 ([Back to Table of Contents](#toc))
@@ -51,7 +54,7 @@ sys_env
 
 Investigate directory structure of data folder, and create scrape metadata from folder names
 
-```{r data_dir}
+```{r data_dir, cache = TRUE}
 # Directory for data folder
 data_directory <- 'C:/Airbnb'
 
@@ -61,6 +64,9 @@ dir_df <- t(data.frame(strsplit(dir_vec, split = '/'), stringsAsFactors = FALSE)
 dir_df <- unique(dir_df[, 1:4])
 colnames(dir_df) <- c('Country', 'State', 'City', 'DataScrapeDate')
 rownames(dir_df) <- seq.int(1, nrow(dir_df))
+
+# Create vector for file sizes
+file_size <- file.info(paste(data_directory, '/', dir_vec, sep = ''))$size
 ```
 
 ### Overview {#overview-sqlite}
@@ -68,15 +74,15 @@ rownames(dir_df) <- seq.int(1, nrow(dir_df))
 
 All data used in this analysis was downloaded from the [Inside Airbnb](http://insideairbnb.com/) website. Data files are available in the ['Get the Data'](http://insideairbnb.com/get-the-data.html) section of the website. This analysis uses the listings ('listings.csv.gz'), calendar ('calendar.csv.gz'), and reviews ('reviews.csv.gz') files.
 
-Data files were downloaded from the [Inside Airbnb](http://insideairbnb.com/) website and placed in a local directory, with a child-folder structure of [Country]/[State]/[City]/[Data Scrape Date ('YYYY-MM-DD')]/[GZ File]. The directory structure used the city, state, and country names from the headers of each scraped city on the ['Get the Data'](http://insideairbnb.com/get-the-data.html) page of the [Inside Airbnb](http://insideairbnb.com/) website. All files for all scrapes of all cities were downloaded as of `r as.character(max(as.Date(dir_df[, 4])), '%B %d, %Y')`, barring the December 02, 2015 scrape of New York City (this scrape contained a broken link for the calendar file). This data encompassed `r nrow(dir_df)` data scrapes for `r nrow(unique(dir_df[, 1:3]))` distinct cities. Older scrapes for each city can be removed to cut down on the data size substantially.
+Data files were downloaded from the [Inside Airbnb](http://insideairbnb.com/) website and placed in a local directory, with a child-folder structure of [Country]/[State]/[City]/[Data Scrape Date ('YYYY-MM-DD')]/[GZ File]. The directory structure used the city, state, and country names from the headers of each scraped city on the ['Get the Data'](http://insideairbnb.com/get-the-data.html) page of the [Inside Airbnb](http://insideairbnb.com/) website. All files for all scrapes of all cities were downloaded as of **`r as.character(max(as.Date(dir_df[, 4])), '%B %d, %Y')`**, barring the December 02, 2015 scrape of New York City (this scrape contained a broken link for the calendar file). This data encompassed **`r nrow(dir_df)`** data scrapes for **`r nrow(unique(dir_df[, 1:3]))`** distinct cities. Older scrapes for each city can be removed to cut down on the data size substantially.
 
 This code uses the directory structure of the data folder to construct the metadata for the scraped data. It is therefore imperative that the directory structure is properly set-up. The listings, calendar, and reviews files must retain their original file names.
 
-For this first step in the data processing, the data is placed into a local SQLite database. The remaining analysis can either be performed on this SQLite database, or the data can be transferred to another store (e.g. a MySQL server on an AWS RDS instance). Total disk space for the gz files (`r length(dir_vec)` files total) is about `r round(sum(file.info(paste(data_directory, '/', dir_vec, sep = ''))$size) / 1024^3, digits = 2)` GBs. Total disk space for the complete SQLite database should end up around `r round((sum(file.info(paste(data_directory, '/', dir_vec, sep = ''))$size) / 1024^3) * 10.3, digits = 2)` GBs, including the optional indices.
+For this first step in the data processing, the data is placed into a local SQLite database. The remaining analysis can either be performed on this SQLite database, or the data can be transferred to another store (e.g. a MySQL server on an AWS RDS instance). Total disk space for the gz files (**`r length(dir_vec)`** files total) is about **`r round(sum(file_size) / 1024^3, digits = 2)`** GBs. Total disk space for the complete SQLite database should end up around **`r round((sum(file_size) / 1024^3) * 10.3, digits = 2)`** GBs, including the optional indices.
 
 ```{r load_libraries_dp1, results = 'hide', message = FALSE}
-library(RSQLite)
-library(DBI)
+library('RSQLite')
+library('DBI')
 ```
 
 ```{r sqlite_directory}
@@ -558,9 +564,9 @@ Transferring the data to a server-based RDBMS solves these problems. Below, the 
     + Additional work may need to be done to handle differences in how MySQL handles NULL fields (concerning how R writes NA values to text files and how MySQL reads the resulting data, and how MySQL handles NULL values for auto-increment NOT NULL columns).
 
 ```{r load_libraries_dp2, results = 'hide', warning = FALSE, message = FALSE}
-library(RSQLite)
-library(RMySQL)
-library(DBI)
+library('RSQLite')
+library('RMySQL')
+library('DBI')
 ```
 
 Connect to the SQLite and MySQL databases
@@ -1414,7 +1420,7 @@ dbDisconnect(abnb_db_slt)
 dbDisconnect(abnb_db_mys)
 ```
 
-## Analysis {#analysis}
+## Analysis I: Data Investigation {#analysis1}
 ([Back to Table of Contents](#toc))
 
 Before beginning the analysis, we must consider some facts about the data and assumptions required to calculate unavailable metrics.
@@ -1450,12 +1456,13 @@ Before beginning the analysis, we must consider some facts about the data and as
 Because of the size of the data source, pre-aggregated data was generally retrieved from the web server through SQL queries. This data was then written to RData files to enable Tableau reporting off of the data, in addition to the visualizations created through the ggplot2 package.
 
 ```{r load_libraries_any, results = 'hide', message = FALSE}
-library(RMySQL)
-library(DBI)
-library(dplyr)
-library(tidyr)
-library(ggplot2)
-library(knitr)
+library('RMySQL')
+library('DBI')
+library('plyr')
+library('dplyr')
+library('tidyr')
+library('ggplot2')
+library('knitr')
 ```
 
 ```{r mysql_connect, eval = TRUE}
@@ -1527,6 +1534,9 @@ scrape <- scrape %>% group_by(Country, State, City) %>%
                  'First Data Scrape' = FirstDataScrape, 'Last Data Scrape' = LastDataScrape)
 kable(scrape, align = c('l', 'l', 'l', 'c', 'c', 'c'))
 ```
+
+## Analysis II: Inventory and Hosts {#analysis2}
+([Back to Table of Contents](#toc))
 
 ### Listings Growth by City {#listings-growth}
 ([Back to Table of Contents](#toc))
@@ -1602,18 +1612,18 @@ Embedded below is a Tableau workbook displaying listings growth by city.
 <!--/html_preserve-->
 --------------------------------------------------
 
-Of note is the difference in listings growth in Europe (Paris and London) against the United States (New York City and Los Angeles). Between February 02, 2016 and July 03, 2016, listings in Paris grew by `r formatC(parend - parstart, digits = 0, format = 'd', big.mark = ',')`, equaling a linear growth rate of `r formatC(((parend - parstart) / as.numeric((as.Date('2016-07-03') - as.Date('2016-02-02'))) * 30), digits = 1, format = 'f', big.mark = ',')` listings per month. Between June 02, 2016 and March 04, 2017, listings in London grew by `r formatC(lonend - lonstart, digits = 0, format = 'd', big.mark = ',')`, equaling a linear growth rate of `r formatC(((lonend - lonstart) / as.numeric((as.Date('2017-03-04') - as.Date('2016-06-02'))) * 30), digits = 1, format = 'f', big.mark = ',')` listings per month.
+Of note is the difference in listings growth in Europe (Paris and London) against the United States (New York City and Los Angeles). Between February 02, 2016 and July 03, 2016, listings in Paris grew by **`r formatC(parend - parstart, digits = 0, format = 'd', big.mark = ',')`**, equaling a linear growth rate of **`r formatC(((parend - parstart) / as.numeric((as.Date('2016-07-03') - as.Date('2016-02-02'))) * 30), digits = 1, format = 'f', big.mark = ',')`** listings per month. Between June 02, 2016 and March 04, 2017, listings in London grew by **`r formatC(lonend - lonstart, digits = 0, format = 'd', big.mark = ',')`**, equaling a linear growth rate of **`r formatC(((lonend - lonstart) / as.numeric((as.Date('2017-03-04') - as.Date('2016-06-02'))) * 30), digits = 1, format = 'f', big.mark = ',')`** listings per month.
 
-In the United States, growth seems to have slowed. Between July 02, 2016 and March 02, 2017, listings in New York City grew by `r formatC(nyend - nystart, digits = 0, format = 'd', big.mark = ',')`, equaling a linear growth rate of `r formatC(((nyend - nystart) / as.numeric((as.Date('2017-03-02') - as.Date('2016-06-02'))) * 30), digits = 1, format = 'f', big.mark = ',')` listings per month. Between August 03, 2016 and March 02, 2017, listings in Los Angeles shrunk by `r formatC(laend - lastart, digits = 0, format = 'd', big.mark = ',')`, equaling a linear growth rate of `r formatC(((laend - lastart) / as.numeric((as.Date('2017-03-02') - as.Date('2016-08-03'))) * 30), digits = 1, format = 'f', big.mark = ',')` listings per month.
+In the United States, growth seems to have slowed. Between July 02, 2016 and March 02, 2017, listings in New York City grew by **`r formatC(nyend - nystart, digits = 0, format = 'd', big.mark = ',')`**, equaling a linear growth rate of **`r formatC(((nyend - nystart) / as.numeric((as.Date('2017-03-02') - as.Date('2016-06-02'))) * 30), digits = 1, format = 'f', big.mark = ',')`** listings per month. Between August 03, 2016 and March 02, 2017, listings in Los Angeles shrunk by **`r formatC(laend - lastart, digits = 0, format = 'd', big.mark = ',')`**, equaling a linear growth rate of **`r formatC(((laend - lastart) / as.numeric((as.Date('2017-03-02') - as.Date('2016-08-03'))) * 30), digits = 1, format = 'f', big.mark = ',')`** listings per month.
 
-Listings per capita for the United States cities is `r formatC(nyend / 19567471, digits = 5, format = 'f')` for a population of 19.6m in New York City and `r formatC(laend / 12828837, digits = 5, format = 'f')` for a population of 12.8m in Los Angeles as of the last scrape in the above calculations (populations equal to metro area populations from 2010 US Census). Listings per capita for the European cities is `r formatC(parend / 12014814, digits = 5, format = 'f')` for a population of 12.0m in Paris and `r formatC(lonend / 13659641, digits = 5, format = 'f')` for a population of 13.7m in London as of the last scrape in the above calculations (populations equal to metro area populations from Eurostat 2014).
+Listings per capita for the United States cities is **`r formatC(nyend / 19567471, digits = 5, format = 'f')`** for a population of 19.6m in New York City and **`r formatC(laend / 12828837, digits = 5, format = 'f')`** for a population of 12.8m in Los Angeles as of the last scrape in the above calculations (populations equal to metro area populations from 2010 US Census). Listings per capita for the European cities is **`r formatC(parend / 12014814, digits = 5, format = 'f')`** for a population of 12.0m in Paris and **`r formatC(lonend / 13659641, digits = 5, format = 'f')`** for a population of 13.7m in London as of the last scrape in the above calculations (populations equal to metro area populations from Eurostat 2014).
 
 A possible explanation for the slower linear listings growth in the United States despite lower listings per capita and larger or comparable populations is the recent regulations passed against home sharing in the US.
 
 ### Distinct Host Growth by City {#host-growth}
 ([Back to Table of Contents](#toc))
 
-Another way to assess Airbnb's inventory is through analysis of their host network. Although the service is generally marketed as a way for individuals to make a side income by sharing their residence(s), many hosts use the service as a primary source of income by permanently sharing multiple locations. Much of the recent regulations passed against Airbnb have been designed to combat this practice, and save residences from being permanently occupied by transient guests. We'll restrict the eligible cities to only cities where the total count of hosts was equal to or greater than 16,000 in at least one of the data scrapes.
+Another way to assess Airbnb's inventory is through analysis of their host network. Although the service is generally marketed as a way for individuals to make a side income by sharing their residence(s), many hosts use the service as a primary source of income by permanently sharing multiple locations. Much of the recent regulations passed against Airbnb have been designed to combat this practice and save residences from being permanently occupied by transient guests. We'll restrict the eligible cities to only cities where the total count of hosts was equal to or greater than 16,000 in at least one of the data scrapes.
 
 ```{r host_prep, results = 'hide', eval = FALSE}
 host_sql <- 'SELECT
@@ -1662,7 +1672,7 @@ print(p)
 ### Percentage of Hosts with More Than One Listing by City {#power-host}
 ([Back to Table of Contents](#toc))
 
-Let's see if we can learn anything about Airbnb's "power hosts". First, let's see what percentage of hosts had more than one listing. Let's restrict the cities to only New York City, Los Angeles, Paris, and London.
+Let's see if we can learn anything about Airbnb's "power hosts" (hosts with more than one listing). First, let's see what percentage of hosts had more than one listing. Let's restrict the cities to only New York City, Los Angeles, Paris, and London.
 
 ```{r power_host, fig.width = 12, fig.height = 14}
 load('data/host.RData')
@@ -1681,24 +1691,60 @@ p <- ggplot(host, aes(x = DataScrapeDate, y = PercentagePowerHost * 100)) +
 print(p)
 ```
 
+### Share of Inventory by Power Host Category {#inv-share}
+([Back to Table of Contents](#toc))
+
 Now, let's look at the distribution of hosts by listing count. We'll restrict to only the "power hosts", and we'll investigate the data in the most recent data scrape for New York City, Los Angeles, Paris, and London.
 
 ```{r power_host_distribution}
 load('data/host.RData')
-host <- host %>% filter(HostListingCount >= 2) %>% group_by(Country, State, City) %>%
+arrange_order <- c('2', '3', '4', '5', '6', '7', '8', '9', '10 - 14', '15 - 19', '20 - 24', '25 - 29', '30 - 34',
+                   '35 - 39', '40 - 44', '45 - 49', '50+')
+host <- host %>% mutate(Listings = HostListingCount * HostCount) %>% group_by(Country, State, City) %>%
         mutate(MaxDate = max(DataScrapeDate)) %>% ungroup() %>% filter(DataScrapeDate == MaxDate) %>%
         filter(City == 'New York City' | City == 'Los Angeles' | City == 'Paris' | City == 'London') %>%
-        group_by(Country, State, City, DataScrapeDate) %>% mutate(TotalPowerHosts = sum(HostCount)) %>%
-        mutate(ShareOfPowerHosts = HostCount / TotalPowerHosts)
-p <- ggplot(host, aes(x = HostListingCount, y = ShareOfPowerHosts * 100)) + geom_density(stat = 'identity') +
-     facet_grid(City ~ .) + coord_cartesian(xlim = c(2, 10)) +
-     xlab('Host Listing Count') + ylab('Host Count') +
-     ggtitle('Distribution of Listing Count for Hosts with More Than One Listing by City') +
-     theme_bw()
-print(p)
+        mutate(HostCategory = ifelse(HostListingCount == 1, 'Single', ifelse(HostListingCount < 10,
+                                     as.character(HostListingCount), ifelse(HostListingCount >= 50, '50+',
+                                     paste(as.character(round_any(HostListingCount, 5, f = floor)), '-',
+                                     as.character(round_any(HostListingCount, 5, f = floor) + 4)))))) %>%
+        group_by(Country, State, City, DataScrapeDate) %>% mutate(TotalListings = sum(Listings)) %>%
+        mutate(TotalPowerListings = sum(ifelse(HostListingCount >= 2, Listings, 0))) %>%
+        mutate(TotalHosts = sum(HostCount)) %>%
+        mutate(TotalPowerHosts = sum(ifelse(HostListingCount >= 2, HostCount, 0))) %>%
+        ungroup() %>% group_by(Country, State, City, DataScrapeDate, HostCategory, TotalListings,
+                               TotalPowerListings, TotalHosts, TotalPowerHosts) %>%
+        summarize(ListingsSum = sum(Listings), HostSum = sum(HostCount)) %>% ungroup() %>%
+        mutate(ShareOfAllListings = paste(as.character(round((ListingsSum / TotalListings) * 100,
+                                                             digits = 2)), '%', sep = ''),
+               ShareOfPowerListings = paste(as.character(round((ListingsSum / TotalPowerListings) * 100,
+                                                               digits = 2)), '%', sep = ''),
+               ShareOfAllHosts = paste(as.character(round((HostSum / TotalHosts) * 100,
+                                                          digits = 2)), '%', sep = ''),
+               ShareOfPowerHosts = paste(as.character(round((HostSum / TotalPowerHosts) * 100,
+                                                            digits = 2)), '%', sep = '')) %>%
+        filter(HostCategory != 'Single') %>%
+        mutate(HostCategory = factor(HostCategory, levels = arrange_order)) %>% arrange(City, HostCategory) %>%
+        select(City, 'Host Category' = HostCategory, 'Host Count' = HostSum,
+               'Share of All Listings' = ShareOfAllListings, 'Share of Power Listings' = ShareOfPowerListings,
+               'Share of All Hosts' = ShareOfAllHosts, 'Share of Power Hosts' = ShareOfPowerHosts)
+kable(host, align = c('l', 'l', 'r', 'r', 'r', 'r', 'r'), format.args = list(big.mark = ','))
 ```
 
+### Property Types {#prop-type}
+([Back to Table of Contents](#toc))
 
+Let's look at some of the data describing listing characteristics. In addition to the room type of the listing ('Entire home/apt', 'Private room', or 'Shared room'), our data also lists the property type of the listing. Let's look at a simple table comparing the room and property types for the latest scrape for New York City.
+
+```{r prop_type_ny}
+load('data/scrape.RData')
+scrape <- scrape %>% group_by(Country, State, City) %>% mutate(MaxDate = max(DataScrapeDate)) %>%
+          ungroup() %>% filter(City == 'New York City' & DataScrapeDate == MaxDate) %>%
+          group_by(Country, State, City, DataScrapeDate, PropertyType) %>%
+          mutate(TotalListings = sum(ListingsCount)) %>% ungroup() %>% spread(RoomType, ListingsCount) %>%
+          select(PropertyType, `Entire home/apt`, `Private room`, `Shared room`,
+                 'Total Listings Count' = TotalListings) %>% arrange(desc(`Total Listings Count`))
+kable(scrape, format.args = list(big.mark = ','))
+```
 
 
 

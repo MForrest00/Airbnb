@@ -19,13 +19,16 @@
     + [Listings Load](#listings-mysql)
     + [Reviews Load](#reviews-mysql)
     + [Index Creation](#index-mysql)
-5. [Analysis](#analysis)
+5. [Analysis I: Data Investigation](#analysis1)
     + [Overview](#overview-analysis)
     + [Data Scrapes by City Plot](#data-scrapes-plot)
     + [Data Scrapes by City Table](#data-scrapes-table)
+6. [Analysis II: Inventory and Hosts](#analysis2)
     + [Listings Growth by City](#listings-growth)
     + [Distinct Host Growth by City](#host-growth)
     + [Percentage of Hosts with More Than One Listing by City](#power-host)
+    + [Share of Inventory by Power Host Category](#inv-share)
+    + [Property Types](#prop-type)
 
 ## Summary {#summary}
 ([Back to Table of Contents](#toc))
@@ -75,6 +78,9 @@ dir_df <- t(data.frame(strsplit(dir_vec, split = '/'), stringsAsFactors = FALSE)
 dir_df <- unique(dir_df[, 1:4])
 colnames(dir_df) <- c('Country', 'State', 'City', 'DataScrapeDate')
 rownames(dir_df) <- seq.int(1, nrow(dir_df))
+
+# Create vector for file sizes
+file_size <- file.info(paste(data_directory, '/', dir_vec, sep = ''))$size
 ```
 
 ### Overview {#overview-sqlite}
@@ -82,16 +88,16 @@ rownames(dir_df) <- seq.int(1, nrow(dir_df))
 
 All data used in this analysis was downloaded from the [Inside Airbnb](http://insideairbnb.com/) website. Data files are available in the ['Get the Data'](http://insideairbnb.com/get-the-data.html) section of the website. This analysis uses the listings ('listings.csv.gz'), calendar ('calendar.csv.gz'), and reviews ('reviews.csv.gz') files.
 
-Data files were downloaded from the [Inside Airbnb](http://insideairbnb.com/) website and placed in a local directory, with a child-folder structure of [Country]/[State]/[City]/[Data Scrape Date ('YYYY-MM-DD')]/[GZ File]. The directory structure used the city, state, and country names from the headers of each scraped city on the ['Get the Data'](http://insideairbnb.com/get-the-data.html) page of the [Inside Airbnb](http://insideairbnb.com/) website. All files for all scrapes of all cities were downloaded as of March 15, 2017, barring the December 02, 2015 scrape of New York City (this scrape contained a broken link for the calendar file). This data encompassed 136 data scrapes for 43 distinct cities. Older scrapes for each city can be removed to cut down on the data size substantially.
+Data files were downloaded from the [Inside Airbnb](http://insideairbnb.com/) website and placed in a local directory, with a child-folder structure of [Country]/[State]/[City]/[Data Scrape Date ('YYYY-MM-DD')]/[GZ File]. The directory structure used the city, state, and country names from the headers of each scraped city on the ['Get the Data'](http://insideairbnb.com/get-the-data.html) page of the [Inside Airbnb](http://insideairbnb.com/) website. All files for all scrapes of all cities were downloaded as of **March 15, 2017**, barring the December 02, 2015 scrape of New York City (this scrape contained a broken link for the calendar file). This data encompassed **136** data scrapes for **43** distinct cities. Older scrapes for each city can be removed to cut down on the data size substantially.
 
 This code uses the directory structure of the data folder to construct the metadata for the scraped data. It is therefore imperative that the directory structure is properly set-up. The listings, calendar, and reviews files must retain their original file names.
 
-For this first step in the data processing, the data is placed into a local SQLite database. The remaining analysis can either be performed on this SQLite database, or the data can be transferred to another store (e.g. a MySQL server on an AWS RDS instance). Total disk space for the gz files (408 files total) is about 6.95 GBs. Total disk space for the complete SQLite database should end up around 71.6 GBs, including the optional indices.
+For this first step in the data processing, the data is placed into a local SQLite database. The remaining analysis can either be performed on this SQLite database, or the data can be transferred to another store (e.g. a MySQL server on an AWS RDS instance). Total disk space for the gz files (**408** files total) is about **6.95** GBs. Total disk space for the complete SQLite database should end up around **71.6** GBs, including the optional indices.
 
 
 ```r
-library(RSQLite)
-library(DBI)
+library('RSQLite')
+library('DBI')
 ```
 
 
@@ -611,9 +617,9 @@ Transferring the data to a server-based RDBMS solves these problems. Below, the 
 
 
 ```r
-library(RSQLite)
-library(RMySQL)
-library(DBI)
+library('RSQLite')
+library('RMySQL')
+library('DBI')
 ```
 
 Connect to the SQLite and MySQL databases
@@ -1486,7 +1492,7 @@ dbDisconnect(abnb_db_slt)
 dbDisconnect(abnb_db_mys)
 ```
 
-## Analysis {#analysis}
+## Analysis I: Data Investigation {#analysis1}
 ([Back to Table of Contents](#toc))
 
 Before beginning the analysis, we must consider some facts about the data and assumptions required to calculate unavailable metrics.
@@ -1523,12 +1529,13 @@ Because of the size of the data source, pre-aggregated data was generally retrie
 
 
 ```r
-library(RMySQL)
-library(DBI)
-library(dplyr)
-library(tidyr)
-library(ggplot2)
-library(knitr)
+library('RMySQL')
+library('DBI')
+library('plyr')
+library('dplyr')
+library('tidyr')
+library('ggplot2')
+library('knitr')
 ```
 
 
@@ -1656,6 +1663,9 @@ United States     Tennessee                       Nashville                    3
 United States     Texas                           Austin                       2                2015-05-23           2015-11-07    
 United States     Washington                      Seattle                      2                2015-06-22           2016-01-04    
 
+## Analysis II: Inventory and Hosts {#analysis2}
+([Back to Table of Contents](#toc))
+
 ### Listings Growth by City {#listings-growth}
 ([Back to Table of Contents](#toc))
 
@@ -1733,18 +1743,18 @@ Embedded below is a Tableau workbook displaying listings growth by city.
 <!--/html_preserve-->
 --------------------------------------------------
 
-Of note is the difference in listings growth in Europe (Paris and London) against the United States (New York City and Los Angeles). Between February 02, 2016 and July 03, 2016, listings in Paris grew by 11,249, equaling a linear growth rate of 2,220.2 listings per month. Between June 02, 2016 and March 04, 2017, listings in London grew by 11,258, equaling a linear growth rate of 1,228.1 listings per month.
+Of note is the difference in listings growth in Europe (Paris and London) against the United States (New York City and Los Angeles). Between February 02, 2016 and July 03, 2016, listings in Paris grew by **11,249**, equaling a linear growth rate of **2,220.2** listings per month. Between June 02, 2016 and March 04, 2017, listings in London grew by **11,258**, equaling a linear growth rate of **1,228.1** listings per month.
 
-In the United States, growth seems to have slowed. Between July 02, 2016 and March 02, 2017, listings in New York City grew by 1,776, equaling a linear growth rate of 195.2 listings per month. Between August 03, 2016 and March 02, 2017, listings in Los Angeles shrunk by -2,708, equaling a linear growth rate of -385.0 listings per month.
+In the United States, growth seems to have slowed. Between July 02, 2016 and March 02, 2017, listings in New York City grew by **1,776**, equaling a linear growth rate of **195.2** listings per month. Between August 03, 2016 and March 02, 2017, listings in Los Angeles shrunk by **-2,708**, equaling a linear growth rate of **-385.0** listings per month.
 
-Listings per capita for the United States cities is 0.00207 for a population of 19.6m in New York City and 0.00182 for a population of 12.8m in Los Angeles as of the last scrape in the above calculations (populations equal to metro area populations from 2010 US Census). Listings per capita for the European cities is 0.00439 for a population of 12.0m in Paris and 0.00395 for a population of 13.7m in London as of the last scrape in the above calculations (populations equal to metro area populations from Eurostat 2014).
+Listings per capita for the United States cities is **0.00207** for a population of 19.6m in New York City and **0.00182** for a population of 12.8m in Los Angeles as of the last scrape in the above calculations (populations equal to metro area populations from 2010 US Census). Listings per capita for the European cities is **0.00439** for a population of 12.0m in Paris and **0.00395** for a population of 13.7m in London as of the last scrape in the above calculations (populations equal to metro area populations from Eurostat 2014).
 
 A possible explanation for the slower linear listings growth in the United States despite lower listings per capita and larger or comparable populations is the recent regulations passed against home sharing in the US.
 
 ### Distinct Host Growth by City {#host-growth}
 ([Back to Table of Contents](#toc))
 
-Another way to assess Airbnb's inventory is through analysis of their host network. Although the service is generally marketed as a way for individuals to make a side income by sharing their residence(s), many hosts use the service as a primary source of income by permanently sharing multiple locations. Much of the recent regulations passed against Airbnb have been designed to combat this practice, and save residences from being permanently occupied by transient guests. We'll restrict the eligible cities to only cities where the total count of hosts was equal to or greater than 16,000 in at least one of the data scrapes.
+Another way to assess Airbnb's inventory is through analysis of their host network. Although the service is generally marketed as a way for individuals to make a side income by sharing their residence(s), many hosts use the service as a primary source of income by permanently sharing multiple locations. Much of the recent regulations passed against Airbnb have been designed to combat this practice and save residences from being permanently occupied by transient guests. We'll restrict the eligible cities to only cities where the total count of hosts was equal to or greater than 16,000 in at least one of the data scrapes.
 
 
 ```r
@@ -1797,7 +1807,7 @@ print(p)
 ### Percentage of Hosts with More Than One Listing by City {#power-host}
 ([Back to Table of Contents](#toc))
 
-Let's see if we can learn anything about Airbnb's power hosts. First, let's see what percentage of hosts had more than one listing. Let's restrict the cities to only New York City, Los Angeles, Paris, and London.
+Let's see if we can learn anything about Airbnb's "power hosts" (hosts with more than one listing). First, let's see what percentage of hosts had more than one listing. Let's restrict the cities to only New York City, Los Angeles, Paris, and London.
 
 
 ```r
@@ -1812,17 +1822,165 @@ host <- host %>% mutate(PowerHostFlag = ifelse(HostListingCount >= 2, 'PowerHost
 p <- ggplot(host, aes(x = DataScrapeDate, y = PercentagePowerHost * 100)) +
      geom_line() + geom_point() + facet_grid(City ~ .) +
      xlab('Data Scrape Date') + ylab('Power Host Percentage') +
-     ggtitle('Percent of Hosts with > 1 Listing by City') +
+     ggtitle('Percentage of Hosts with More Than One Listing by City') +
      theme_bw() + scale_y_continuous(labels = function(x) paste(x, '%', sep = ''))
 print(p)
 ```
 
 ![](Airbnb_files/figure-html/power_host-1.png)<!-- -->
 
+### Share of Inventory by Power Host Category {#inv-share}
+([Back to Table of Contents](#toc))
+
+Now, let's look at the distribution of hosts by listing count. We'll restrict to only the "power hosts", and we'll investigate the data in the most recent data scrape for New York City, Los Angeles, Paris, and London.
+
+
+```r
+load('data/host.RData')
+arrange_order <- c('2', '3', '4', '5', '6', '7', '8', '9', '10 - 14', '15 - 19', '20 - 24', '25 - 29', '30 - 34',
+                   '35 - 39', '40 - 44', '45 - 49', '50+')
+host <- host %>% mutate(Listings = HostListingCount * HostCount) %>% group_by(Country, State, City) %>%
+        mutate(MaxDate = max(DataScrapeDate)) %>% ungroup() %>% filter(DataScrapeDate == MaxDate) %>%
+        filter(City == 'New York City' | City == 'Los Angeles' | City == 'Paris' | City == 'London') %>%
+        mutate(HostCategory = ifelse(HostListingCount == 1, 'Single', ifelse(HostListingCount < 10,
+                                     as.character(HostListingCount), ifelse(HostListingCount >= 50, '50+',
+                                     paste(as.character(round_any(HostListingCount, 5, f = floor)), '-',
+                                     as.character(round_any(HostListingCount, 5, f = floor) + 4)))))) %>%
+        group_by(Country, State, City, DataScrapeDate) %>% mutate(TotalListings = sum(Listings)) %>%
+        mutate(TotalPowerListings = sum(ifelse(HostListingCount >= 2, Listings, 0))) %>%
+        mutate(TotalHosts = sum(HostCount)) %>%
+        mutate(TotalPowerHosts = sum(ifelse(HostListingCount >= 2, HostCount, 0))) %>%
+        ungroup() %>% group_by(Country, State, City, DataScrapeDate, HostCategory, TotalListings,
+                               TotalPowerListings, TotalHosts, TotalPowerHosts) %>%
+        summarize(ListingsSum = sum(Listings), HostSum = sum(HostCount)) %>% ungroup() %>%
+        mutate(ShareOfAllListings = paste(as.character(round((ListingsSum / TotalListings) * 100,
+                                                             digits = 2)), '%', sep = ''),
+               ShareOfPowerListings = paste(as.character(round((ListingsSum / TotalPowerListings) * 100,
+                                                               digits = 2)), '%', sep = ''),
+               ShareOfAllHosts = paste(as.character(round((HostSum / TotalHosts) * 100,
+                                                          digits = 2)), '%', sep = ''),
+               ShareOfPowerHosts = paste(as.character(round((HostSum / TotalPowerHosts) * 100,
+                                                            digits = 2)), '%', sep = '')) %>%
+        filter(HostCategory != 'Single') %>%
+        mutate(HostCategory = factor(HostCategory, levels = arrange_order)) %>% arrange(City, HostCategory) %>%
+        select(City, 'Host Category' = HostCategory, 'Host Count' = HostSum,
+               'Share of All Listings' = ShareOfAllListings, 'Share of Power Listings' = ShareOfPowerListings,
+               'Share of All Hosts' = ShareOfAllHosts, 'Share of Power Hosts' = ShareOfPowerHosts)
+kable(host, align = c('l', 'l', 'r', 'r', 'r', 'r', 'r'), format.args = list(big.mark = ','))
+```
 
 
 
+City            Host Category    Host Count   Share of All Listings   Share of Power Listings   Share of All Hosts   Share of Power Hosts
+--------------  --------------  -----------  ----------------------  ------------------------  -------------------  ---------------------
+London          2                     3,905                  14.49%                    34.95%               10.37%                 64.16%
+London          3                     1,019                   5.67%                    13.68%                2.71%                 16.74%
+London          4                       383                   2.84%                     6.86%                1.02%                  6.29%
+London          5                       181                   1.68%                     4.05%                0.48%                  2.97%
+London          6                       124                   1.38%                     3.33%                0.33%                  2.04%
+London          7                        96                   1.25%                     3.01%                0.26%                  1.58%
+London          8                        66                   0.98%                     2.36%                0.18%                  1.08%
+London          9                        37                   0.62%                     1.49%                 0.1%                  0.61%
+London          10 - 14                 123                   2.65%                     6.39%                0.33%                  2.02%
+London          15 - 19                  56                   1.77%                     4.26%                0.15%                  0.92%
+London          20 - 24                  27                    1.1%                     2.64%                0.07%                  0.44%
+London          25 - 29                  17                   0.87%                     2.09%                0.05%                  0.28%
+London          30 - 34                  14                   0.82%                     1.97%                0.04%                  0.23%
+London          35 - 39                   8                   0.55%                     1.32%                0.02%                  0.13%
+London          40 - 44                   4                   0.31%                     0.75%                0.01%                  0.07%
+London          45 - 49                   2                   0.17%                     0.41%                0.01%                  0.03%
+London          50+                      24                   4.33%                    10.44%                0.06%                  0.39%
+Los Angeles     2                     1,858                   15.9%                    35.31%               11.57%                  57.9%
+Los Angeles     3                       597                   7.66%                    17.02%                3.72%                  18.6%
+Los Angeles     4                       298                    5.1%                    11.33%                1.86%                  9.29%
+Los Angeles     5                       138                   2.95%                     6.56%                0.86%                   4.3%
+Los Angeles     6                        81                   2.08%                     4.62%                 0.5%                  2.52%
+Los Angeles     7                        61                   1.83%                     4.06%                0.38%                   1.9%
+Los Angeles     8                        54                   1.85%                     4.11%                0.34%                  1.68%
+Los Angeles     9                        19                   0.73%                     1.63%                0.12%                  0.59%
+Los Angeles     10 - 14                  57                   2.82%                     6.25%                0.35%                  1.78%
+Los Angeles     15 - 19                  24                   1.72%                     3.83%                0.15%                  0.75%
+Los Angeles     20 - 24                  10                   0.92%                     2.05%                0.06%                  0.31%
+Los Angeles     25 - 29                   8                   0.89%                     1.97%                0.05%                  0.25%
+Los Angeles     30 - 34                   3                   0.39%                     0.87%                0.02%                  0.09%
+Los Angeles     40 - 44                   1                   0.18%                      0.4%                0.01%                  0.03%
+New York City   2                     2,769                  13.65%                    53.31%                8.11%                 69.96%
+New York City   3                       684                   5.06%                    19.75%                   2%                 17.28%
+New York City   4                       238                   2.35%                     9.16%                 0.7%                  6.01%
+New York City   5                       106                   1.31%                      5.1%                0.31%                  2.68%
+New York City   6                        66                   0.98%                     3.81%                0.19%                  1.67%
+New York City   7                        36                   0.62%                     2.43%                0.11%                  0.91%
+New York City   8                        19                   0.37%                     1.46%                0.06%                  0.48%
+New York City   9                         9                    0.2%                     0.78%                0.03%                  0.23%
+New York City   10 - 14                  23                   0.62%                     2.43%                0.07%                  0.58%
+New York City   15 - 19                   4                   0.17%                     0.65%                0.01%                   0.1%
+New York City   20 - 24                   1                   0.05%                     0.19%                   0%                  0.03%
+New York City   25 - 29                   1                   0.07%                     0.27%                   0%                  0.03%
+New York City   30 - 34                   1                   0.08%                     0.32%                   0%                  0.03%
+New York City   35 - 39                   1                   0.09%                     0.34%                   0%                  0.03%
+Paris           2                     2,492                   9.45%                    44.65%                5.55%                 75.24%
+Paris           3                       404                    2.3%                    10.86%                 0.9%                  12.2%
+Paris           4                       125                   0.95%                     4.48%                0.28%                  3.77%
+Paris           5                        61                   0.58%                     2.73%                0.14%                  1.84%
+Paris           6                        35                    0.4%                     1.88%                0.08%                  1.06%
+Paris           7                        23                   0.31%                     1.44%                0.05%                  0.69%
+Paris           8                        22                   0.33%                     1.58%                0.05%                  0.66%
+Paris           9                        15                   0.26%                     1.21%                0.03%                  0.45%
+Paris           10 - 14                  45                   1.03%                     4.85%                 0.1%                  1.36%
+Paris           15 - 19                  24                   0.74%                     3.48%                0.05%                  0.72%
+Paris           20 - 24                  23                   0.95%                     4.49%                0.05%                  0.69%
+Paris           25 - 29                   8                   0.41%                     1.93%                0.02%                  0.24%
+Paris           30 - 34                   5                   0.31%                     1.44%                0.01%                  0.15%
+Paris           35 - 39                  11                   0.77%                     3.62%                0.02%                  0.33%
+Paris           40 - 44                   3                   0.24%                     1.13%                0.01%                  0.09%
+Paris           45 - 49                   1                   0.09%                     0.43%                   0%                  0.03%
+Paris           50+                      15                   2.08%                     9.81%                0.03%                  0.45%
 
+### Property Types {#prop-type}
+([Back to Table of Contents](#toc))
+
+Let's look at some of the data describing listing characteristics. In addition to the room type of the listing ('Entire home/apt', 'Private room', or 'Shared room'), our data also lists the property type of the listing. Let's look at a simple table comparing the room and property types for the latest scrape for New York City.
+
+
+```r
+load('data/scrape.RData')
+scrape <- scrape %>% group_by(Country, State, City) %>% mutate(MaxDate = max(DataScrapeDate)) %>%
+          ungroup() %>% filter(City == 'New York City' & DataScrapeDate == MaxDate) %>%
+          group_by(Country, State, City, DataScrapeDate, PropertyType) %>%
+          mutate(TotalListings = sum(ListingsCount)) %>% ungroup() %>% spread(RoomType, ListingsCount) %>%
+          select(PropertyType, `Entire home/apt`, `Private room`, `Shared room`,
+                 'Total Listings Count' = TotalListings) %>% arrange(desc(`Total Listings Count`))
+kable(scrape, format.args = list(big.mark = ','))
+```
+
+
+
+PropertyType          Entire home/apt   Private room   Shared room   Total Listings Count
+-------------------  ----------------  -------------  ------------  ---------------------
+Apartment                      17,652         16,291           990                 34,933
+House                           1,110          2,100            94                  3,304
+Loft                              453            403            29                    885
+Townhouse                         242            276             7                    525
+Condominium                       214            124             6                    344
+Other                             101            104            10                    215
+Bed & Breakfast                    26            127            31                    184
+Guesthouse                         11             17            17                     45
+Timeshare                          28              7             2                     37
+Hostel                              1             12            12                     25
+Boutique hotel                      9             10            NA                     19
+Dorm                                1             13             5                     19
+Villa                               6              7            NA                     13
+Bungalow                           10              1             1                     12
+Serviced apartment                  6              4            NA                     10
+Boat                                5             NA            NA                      5
+Cabin                               1              1             1                      3
+Castle                              1              1            NA                      2
+Cave                                1             NA            NA                      1
+Chalet                             NA              1            NA                      1
+Earth House                        NA              1            NA                      1
+Hut                                NA              1            NA                      1
+Island                              1             NA            NA                      1
+Tent                               NA              1            NA                      1
 
 
 

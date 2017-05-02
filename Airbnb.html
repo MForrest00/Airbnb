@@ -4,7 +4,7 @@
 
 <head>
 
-<meta charset="utf-8">
+<meta charset="utf-8" />
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="generator" content="pandoc" />
 
@@ -144,14 +144,19 @@ $(document).ready(function () {
 <li><a href="#reviews-mysql">Reviews Load</a></li>
 <li><a href="#index-mysql">Index Creation</a></li>
 </ul></li>
-<li><a href="#analysis">Analysis</a>
+<li><a href="#analysis1">Analysis I: Data Investigation</a>
 <ul>
 <li><a href="#overview-analysis">Overview</a></li>
 <li><a href="#data-scrapes-plot">Data Scrapes by City Plot</a></li>
 <li><a href="#data-scrapes-table">Data Scrapes by City Table</a></li>
+</ul></li>
+<li><a href="#analysis2">Analysis II: Inventory and Hosts</a>
+<ul>
 <li><a href="#listings-growth">Listings Growth by City</a></li>
 <li><a href="#host-growth">Distinct Host Growth by City</a></li>
 <li><a href="#power-host">Percentage of Hosts with More Than One Listing by City</a></li>
+<li><a href="#inv-share">Share of Inventory by Power Host Category</a></li>
+<li><a href="#prop-type">Property Types</a></li>
 </ul></li>
 </ol>
 </div>
@@ -194,16 +199,19 @@ dir_vec &lt;- list.files(data_directory, recursive = TRUE)
 dir_df &lt;- t(data.frame(strsplit(dir_vec, split = &#39;/&#39;), stringsAsFactors = FALSE))
 dir_df &lt;- unique(dir_df[, 1:4])
 colnames(dir_df) &lt;- c(&#39;Country&#39;, &#39;State&#39;, &#39;City&#39;, &#39;DataScrapeDate&#39;)
-rownames(dir_df) &lt;- seq.int(1, nrow(dir_df))</code></pre>
+rownames(dir_df) &lt;- seq.int(1, nrow(dir_df))
+
+# Create vector for file sizes
+file_size &lt;- file.info(paste(data_directory, &#39;/&#39;, dir_vec, sep = &#39;&#39;))$size</code></pre>
 <div id="overview-sqlite" class="section level3">
 <h3>Overview</h3>
 <p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <p>All data used in this analysis was downloaded from the <a href="http://insideairbnb.com/">Inside Airbnb</a> website. Data files are available in the <a href="http://insideairbnb.com/get-the-data.html">‘Get the Data’</a> section of the website. This analysis uses the listings (‘listings.csv.gz’), calendar (‘calendar.csv.gz’), and reviews (‘reviews.csv.gz’) files.</p>
-<p>Data files were downloaded from the <a href="http://insideairbnb.com/">Inside Airbnb</a> website and placed in a local directory, with a child-folder structure of [Country]/[State]/[City]/[Data Scrape Date (‘YYYY-MM-DD’)]/[GZ File]. The directory structure used the city, state, and country names from the headers of each scraped city on the <a href="http://insideairbnb.com/get-the-data.html">‘Get the Data’</a> page of the <a href="http://insideairbnb.com/">Inside Airbnb</a> website. All files for all scrapes of all cities were downloaded as of March 15, 2017, barring the December 02, 2015 scrape of New York City (this scrape contained a broken link for the calendar file). This data encompassed 136 data scrapes for 43 distinct cities. Older scrapes for each city can be removed to cut down on the data size substantially.</p>
+<p>Data files were downloaded from the <a href="http://insideairbnb.com/">Inside Airbnb</a> website and placed in a local directory, with a child-folder structure of [Country]/[State]/[City]/[Data Scrape Date (‘YYYY-MM-DD’)]/[GZ File]. The directory structure used the city, state, and country names from the headers of each scraped city on the <a href="http://insideairbnb.com/get-the-data.html">‘Get the Data’</a> page of the <a href="http://insideairbnb.com/">Inside Airbnb</a> website. All files for all scrapes of all cities were downloaded as of <strong>March 15, 2017</strong>, barring the December 02, 2015 scrape of New York City (this scrape contained a broken link for the calendar file). This data encompassed <strong>136</strong> data scrapes for <strong>43</strong> distinct cities. Older scrapes for each city can be removed to cut down on the data size substantially.</p>
 <p>This code uses the directory structure of the data folder to construct the metadata for the scraped data. It is therefore imperative that the directory structure is properly set-up. The listings, calendar, and reviews files must retain their original file names.</p>
-<p>For this first step in the data processing, the data is placed into a local SQLite database. The remaining analysis can either be performed on this SQLite database, or the data can be transferred to another store (e.g. a MySQL server on an AWS RDS instance). Total disk space for the gz files (408 files total) is about 6.95 GBs. Total disk space for the complete SQLite database should end up around 71.6 GBs, including the optional indices.</p>
-<pre class="r"><code>library(RSQLite)
-library(DBI)</code></pre>
+<p>For this first step in the data processing, the data is placed into a local SQLite database. The remaining analysis can either be performed on this SQLite database, or the data can be transferred to another store (e.g. a MySQL server on an AWS RDS instance). Total disk space for the gz files (<strong>408</strong> files total) is about <strong>6.95</strong> GBs. Total disk space for the complete SQLite database should end up around <strong>71.6</strong> GBs, including the optional indices.</p>
+<pre class="r"><code>library(&#39;RSQLite&#39;)
+library(&#39;DBI&#39;)</code></pre>
 <pre class="r"><code># Directory and file for SQLite database
 sqlite_directory &lt;- &#39;C:/SQLite/Databases/Airbnb.sqlite3&#39;</code></pre>
 <p>Connect to or create the SQLite database and build the tables if they do not exist</p>
@@ -665,9 +673,9 @@ dbDisconnect(abnb_db)</code></pre>
 <li>Additional work may need to be done to handle differences in how MySQL handles NULL fields (concerning how R writes NA values to text files and how MySQL reads the resulting data, and how MySQL handles NULL values for auto-increment NOT NULL columns).</li>
 </ul></li>
 </ol>
-<pre class="r"><code>library(RSQLite)
-library(RMySQL)
-library(DBI)</code></pre>
+<pre class="r"><code>library(&#39;RSQLite&#39;)
+library(&#39;RMySQL&#39;)
+library(&#39;DBI&#39;)</code></pre>
 <p>Connect to the SQLite and MySQL databases</p>
 <pre class="r"><code># Directory and file for SQLite database
 sqlite_directory &lt;- &#39;C:/SQLite/Databases/Airbnb.sqlite3&#39;
@@ -1486,8 +1494,8 @@ dbDisconnect(abnb_db_slt)
 dbDisconnect(abnb_db_mys)</code></pre>
 </div>
 </div>
-<div id="analysis" class="section level2">
-<h2>Analysis</h2>
+<div id="analysis1" class="section level2">
+<h2>Analysis I: Data Investigation</h2>
 <p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <p>Before beginning the analysis, we must consider some facts about the data and assumptions required to calculate unavailable metrics.</p>
 <div id="overview-analysis" class="section level3">
@@ -1523,12 +1531,13 @@ dbDisconnect(abnb_db_mys)</code></pre>
 <li>If a listing has higher minimum nights than the average length of stay, the minimum nights for that listing is used instead.</li>
 </ol>
 <p>Because of the size of the data source, pre-aggregated data was generally retrieved from the web server through SQL queries. This data was then written to RData files to enable Tableau reporting off of the data, in addition to the visualizations created through the ggplot2 package.</p>
-<pre class="r"><code>library(RMySQL)
-library(DBI)
-library(dplyr)
-library(tidyr)
-library(ggplot2)
-library(knitr)</code></pre>
+<pre class="r"><code>library(&#39;RMySQL&#39;)
+library(&#39;DBI&#39;)
+library(&#39;plyr&#39;)
+library(&#39;dplyr&#39;)
+library(&#39;tidyr&#39;)
+library(&#39;ggplot2&#39;)
+library(&#39;knitr&#39;)</code></pre>
 <pre class="r"><code># Load MySQL server address and log-in credentials (replace with your server address and log-in credentials)
 mysql_server_address &lt;- readLines(&#39;C:/Credentials/AWS MySQL Airbnb Database/serverAddress.txt&#39;)
 mysql_user_name &lt;- readLines(&#39;C:/Credentials/AWS MySQL Airbnb Database/userName.txt&#39;)
@@ -1945,6 +1954,10 @@ kable(scrape, align = c(&#39;l&#39;, &#39;l&#39;, &#39;l&#39;, &#39;c&#39;, &#39
 </tbody>
 </table>
 </div>
+</div>
+<div id="analysis2" class="section level2">
+<h2>Analysis II: Inventory and Hosts</h2>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
 <div id="listings-growth" class="section level3">
 <h3>Listings Growth by City</h3>
 <p>(<a href="#toc">Back to Table of Contents</a>)</p>
@@ -2046,14 +2059,14 @@ print(p)</code></pre>
 	vizElement.parentNode.insertBefore(scriptElement, vizElement);
 </script>
 </h2>
-<p>Of note is the difference in listings growth in Europe (Paris and London) against the United States (New York City and Los Angeles). Between February 02, 2016 and July 03, 2016, listings in Paris grew by 11,249, equaling a linear growth rate of 2,220.2 listings per month. Between June 02, 2016 and March 04, 2017, listings in London grew by 11,258, equaling a linear growth rate of 1,228.1 listings per month.</p>
-<p>In the United States, growth seems to have slowed. Between July 02, 2016 and March 02, 2017, listings in New York City grew by 1,776, equaling a linear growth rate of 195.2 listings per month. Between August 03, 2016 and March 02, 2017, listings in Los Angeles shrunk by -2,708, equaling a linear growth rate of -385.0 listings per month.</p>
-<p>Listings per capita for the United States cities is 0.00207 for a population of 19.6m in New York City and 0.00182 for a population of 12.8m in Los Angeles as of the last scrape in the above calculations (populations equal to metro area populations from 2010 US Census). Listings per capita for the European cities is 0.00439 for a population of 12.0m in Paris and 0.00395 for a population of 13.7m in London as of the last scrape in the above calculations (populations equal to metro area populations from Eurostat 2014).</p>
+<p>Of note is the difference in listings growth in Europe (Paris and London) against the United States (New York City and Los Angeles). Between February 02, 2016 and July 03, 2016, listings in Paris grew by <strong>11,249</strong>, equaling a linear growth rate of <strong>2,220.2</strong> listings per month. Between June 02, 2016 and March 04, 2017, listings in London grew by <strong>11,258</strong>, equaling a linear growth rate of <strong>1,228.1</strong> listings per month.</p>
+<p>In the United States, growth seems to have slowed. Between July 02, 2016 and March 02, 2017, listings in New York City grew by <strong>1,776</strong>, equaling a linear growth rate of <strong>195.2</strong> listings per month. Between August 03, 2016 and March 02, 2017, listings in Los Angeles shrunk by <strong>-2,708</strong>, equaling a linear growth rate of <strong>-385.0</strong> listings per month.</p>
+<p>Listings per capita for the United States cities is <strong>0.00207</strong> for a population of 19.6m in New York City and <strong>0.00182</strong> for a population of 12.8m in Los Angeles as of the last scrape in the above calculations (populations equal to metro area populations from 2010 US Census). Listings per capita for the European cities is <strong>0.00439</strong> for a population of 12.0m in Paris and <strong>0.00395</strong> for a population of 13.7m in London as of the last scrape in the above calculations (populations equal to metro area populations from Eurostat 2014).</p>
 <p>A possible explanation for the slower linear listings growth in the United States despite lower listings per capita and larger or comparable populations is the recent regulations passed against home sharing in the US.</p>
 <div id="host-growth" class="section level3">
 <h3>Distinct Host Growth by City</h3>
 <p>(<a href="#toc">Back to Table of Contents</a>)</p>
-<p>Another way to assess Airbnb’s inventory is through analysis of their host network. Although the service is generally marketed as a way for individuals to make a side income by sharing their residence(s), many hosts use the service as a primary source of income by permanently sharing multiple locations. Much of the recent regulations passed against Airbnb have been designed to combat this practice, and save residences from being permanently occupied by transient guests. We’ll restrict the eligible cities to only cities where the total count of hosts was equal to or greater than 16,000 in at least one of the data scrapes.</p>
+<p>Another way to assess Airbnb’s inventory is through analysis of their host network. Although the service is generally marketed as a way for individuals to make a side income by sharing their residence(s), many hosts use the service as a primary source of income by permanently sharing multiple locations. Much of the recent regulations passed against Airbnb have been designed to combat this practice and save residences from being permanently occupied by transient guests. We’ll restrict the eligible cities to only cities where the total count of hosts was equal to or greater than 16,000 in at least one of the data scrapes.</p>
 <pre class="r"><code>host_sql &lt;- &#39;SELECT
                  a.Country
                  ,a.State
@@ -2097,7 +2110,7 @@ print(p)</code></pre>
 <div id="power-host" class="section level3">
 <h3>Percentage of Hosts with More Than One Listing by City</h3>
 <p>(<a href="#toc">Back to Table of Contents</a>)</p>
-<p>Let’s see if we can learn anything about Airbnb’s power hosts. First, let’s see what percentage of hosts had more than one listing. Let’s restrict the cities to only New York City, Los Angeles, Paris, and London.</p>
+<p>Let’s see if we can learn anything about Airbnb’s “power hosts” (hosts with more than one listing). First, let’s see what percentage of hosts had more than one listing. Let’s restrict the cities to only New York City, Los Angeles, Paris, and London.</p>
 <pre class="r"><code>load(&#39;data/host.RData&#39;)
 host &lt;- host %&gt;% mutate(PowerHostFlag = ifelse(HostListingCount &gt;= 2, &#39;PowerHost&#39;, &#39;StandardHost&#39;)) %&gt;%
         group_by(Country, State, City, DataScrapeDate, PowerHostFlag) %&gt;%
@@ -2109,10 +2122,813 @@ host &lt;- host %&gt;% mutate(PowerHostFlag = ifelse(HostListingCount &gt;= 2, &
 p &lt;- ggplot(host, aes(x = DataScrapeDate, y = PercentagePowerHost * 100)) +
      geom_line() + geom_point() + facet_grid(City ~ .) +
      xlab(&#39;Data Scrape Date&#39;) + ylab(&#39;Power Host Percentage&#39;) +
-     ggtitle(&#39;Percent of Hosts with &gt; 1 Listing by City&#39;) +
+     ggtitle(&#39;Percentage of Hosts with More Than One Listing by City&#39;) +
      theme_bw() + scale_y_continuous(labels = function(x) paste(x, &#39;%&#39;, sep = &#39;&#39;))
 print(p)</code></pre>
 <p><img src="Airbnb_files/figure-html/power_host-1.png" /><!-- --></p>
+</div>
+<div id="inv-share" class="section level3">
+<h3>Share of Inventory by Power Host Category</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
+<p>Now, let’s look at the distribution of hosts by listing count. We’ll restrict to only the “power hosts”, and we’ll investigate the data in the most recent data scrape for New York City, Los Angeles, Paris, and London.</p>
+<pre class="r"><code>load(&#39;data/host.RData&#39;)
+arrange_order &lt;- c(&#39;2&#39;, &#39;3&#39;, &#39;4&#39;, &#39;5&#39;, &#39;6&#39;, &#39;7&#39;, &#39;8&#39;, &#39;9&#39;, &#39;10 - 14&#39;, &#39;15 - 19&#39;, &#39;20 - 24&#39;, &#39;25 - 29&#39;, &#39;30 - 34&#39;,
+                   &#39;35 - 39&#39;, &#39;40 - 44&#39;, &#39;45 - 49&#39;, &#39;50+&#39;)
+host &lt;- host %&gt;% mutate(Listings = HostListingCount * HostCount) %&gt;% group_by(Country, State, City) %&gt;%
+        mutate(MaxDate = max(DataScrapeDate)) %&gt;% ungroup() %&gt;% filter(DataScrapeDate == MaxDate) %&gt;%
+        filter(City == &#39;New York City&#39; | City == &#39;Los Angeles&#39; | City == &#39;Paris&#39; | City == &#39;London&#39;) %&gt;%
+        mutate(HostCategory = ifelse(HostListingCount == 1, &#39;Single&#39;, ifelse(HostListingCount &lt; 10,
+                                     as.character(HostListingCount), ifelse(HostListingCount &gt;= 50, &#39;50+&#39;,
+                                     paste(as.character(round_any(HostListingCount, 5, f = floor)), &#39;-&#39;,
+                                     as.character(round_any(HostListingCount, 5, f = floor) + 4)))))) %&gt;%
+        group_by(Country, State, City, DataScrapeDate) %&gt;% mutate(TotalListings = sum(Listings)) %&gt;%
+        mutate(TotalPowerListings = sum(ifelse(HostListingCount &gt;= 2, Listings, 0))) %&gt;%
+        mutate(TotalHosts = sum(HostCount)) %&gt;%
+        mutate(TotalPowerHosts = sum(ifelse(HostListingCount &gt;= 2, HostCount, 0))) %&gt;%
+        ungroup() %&gt;% group_by(Country, State, City, DataScrapeDate, HostCategory, TotalListings,
+                               TotalPowerListings, TotalHosts, TotalPowerHosts) %&gt;%
+        summarize(ListingsSum = sum(Listings), HostSum = sum(HostCount)) %&gt;% ungroup() %&gt;%
+        mutate(ShareOfAllListings = paste(as.character(round((ListingsSum / TotalListings) * 100,
+                                                             digits = 2)), &#39;%&#39;, sep = &#39;&#39;),
+               ShareOfPowerListings = paste(as.character(round((ListingsSum / TotalPowerListings) * 100,
+                                                               digits = 2)), &#39;%&#39;, sep = &#39;&#39;),
+               ShareOfAllHosts = paste(as.character(round((HostSum / TotalHosts) * 100,
+                                                          digits = 2)), &#39;%&#39;, sep = &#39;&#39;),
+               ShareOfPowerHosts = paste(as.character(round((HostSum / TotalPowerHosts) * 100,
+                                                            digits = 2)), &#39;%&#39;, sep = &#39;&#39;)) %&gt;%
+        filter(HostCategory != &#39;Single&#39;) %&gt;%
+        mutate(HostCategory = factor(HostCategory, levels = arrange_order)) %&gt;% arrange(City, HostCategory) %&gt;%
+        select(City, &#39;Host Category&#39; = HostCategory, &#39;Host Count&#39; = HostSum,
+               &#39;Share of All Listings&#39; = ShareOfAllListings, &#39;Share of Power Listings&#39; = ShareOfPowerListings,
+               &#39;Share of All Hosts&#39; = ShareOfAllHosts, &#39;Share of Power Hosts&#39; = ShareOfPowerHosts)
+kable(host, align = c(&#39;l&#39;, &#39;l&#39;, &#39;r&#39;, &#39;r&#39;, &#39;r&#39;, &#39;r&#39;, &#39;r&#39;), format.args = list(big.mark = &#39;,&#39;))</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left">City</th>
+<th align="left">Host Category</th>
+<th align="right">Host Count</th>
+<th align="right">Share of All Listings</th>
+<th align="right">Share of Power Listings</th>
+<th align="right">Share of All Hosts</th>
+<th align="right">Share of Power Hosts</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">London</td>
+<td align="left">2</td>
+<td align="right">3,905</td>
+<td align="right">14.49%</td>
+<td align="right">34.95%</td>
+<td align="right">10.37%</td>
+<td align="right">64.16%</td>
+</tr>
+<tr class="even">
+<td align="left">London</td>
+<td align="left">3</td>
+<td align="right">1,019</td>
+<td align="right">5.67%</td>
+<td align="right">13.68%</td>
+<td align="right">2.71%</td>
+<td align="right">16.74%</td>
+</tr>
+<tr class="odd">
+<td align="left">London</td>
+<td align="left">4</td>
+<td align="right">383</td>
+<td align="right">2.84%</td>
+<td align="right">6.86%</td>
+<td align="right">1.02%</td>
+<td align="right">6.29%</td>
+</tr>
+<tr class="even">
+<td align="left">London</td>
+<td align="left">5</td>
+<td align="right">181</td>
+<td align="right">1.68%</td>
+<td align="right">4.05%</td>
+<td align="right">0.48%</td>
+<td align="right">2.97%</td>
+</tr>
+<tr class="odd">
+<td align="left">London</td>
+<td align="left">6</td>
+<td align="right">124</td>
+<td align="right">1.38%</td>
+<td align="right">3.33%</td>
+<td align="right">0.33%</td>
+<td align="right">2.04%</td>
+</tr>
+<tr class="even">
+<td align="left">London</td>
+<td align="left">7</td>
+<td align="right">96</td>
+<td align="right">1.25%</td>
+<td align="right">3.01%</td>
+<td align="right">0.26%</td>
+<td align="right">1.58%</td>
+</tr>
+<tr class="odd">
+<td align="left">London</td>
+<td align="left">8</td>
+<td align="right">66</td>
+<td align="right">0.98%</td>
+<td align="right">2.36%</td>
+<td align="right">0.18%</td>
+<td align="right">1.08%</td>
+</tr>
+<tr class="even">
+<td align="left">London</td>
+<td align="left">9</td>
+<td align="right">37</td>
+<td align="right">0.62%</td>
+<td align="right">1.49%</td>
+<td align="right">0.1%</td>
+<td align="right">0.61%</td>
+</tr>
+<tr class="odd">
+<td align="left">London</td>
+<td align="left">10 - 14</td>
+<td align="right">123</td>
+<td align="right">2.65%</td>
+<td align="right">6.39%</td>
+<td align="right">0.33%</td>
+<td align="right">2.02%</td>
+</tr>
+<tr class="even">
+<td align="left">London</td>
+<td align="left">15 - 19</td>
+<td align="right">56</td>
+<td align="right">1.77%</td>
+<td align="right">4.26%</td>
+<td align="right">0.15%</td>
+<td align="right">0.92%</td>
+</tr>
+<tr class="odd">
+<td align="left">London</td>
+<td align="left">20 - 24</td>
+<td align="right">27</td>
+<td align="right">1.1%</td>
+<td align="right">2.64%</td>
+<td align="right">0.07%</td>
+<td align="right">0.44%</td>
+</tr>
+<tr class="even">
+<td align="left">London</td>
+<td align="left">25 - 29</td>
+<td align="right">17</td>
+<td align="right">0.87%</td>
+<td align="right">2.09%</td>
+<td align="right">0.05%</td>
+<td align="right">0.28%</td>
+</tr>
+<tr class="odd">
+<td align="left">London</td>
+<td align="left">30 - 34</td>
+<td align="right">14</td>
+<td align="right">0.82%</td>
+<td align="right">1.97%</td>
+<td align="right">0.04%</td>
+<td align="right">0.23%</td>
+</tr>
+<tr class="even">
+<td align="left">London</td>
+<td align="left">35 - 39</td>
+<td align="right">8</td>
+<td align="right">0.55%</td>
+<td align="right">1.32%</td>
+<td align="right">0.02%</td>
+<td align="right">0.13%</td>
+</tr>
+<tr class="odd">
+<td align="left">London</td>
+<td align="left">40 - 44</td>
+<td align="right">4</td>
+<td align="right">0.31%</td>
+<td align="right">0.75%</td>
+<td align="right">0.01%</td>
+<td align="right">0.07%</td>
+</tr>
+<tr class="even">
+<td align="left">London</td>
+<td align="left">45 - 49</td>
+<td align="right">2</td>
+<td align="right">0.17%</td>
+<td align="right">0.41%</td>
+<td align="right">0.01%</td>
+<td align="right">0.03%</td>
+</tr>
+<tr class="odd">
+<td align="left">London</td>
+<td align="left">50+</td>
+<td align="right">24</td>
+<td align="right">4.33%</td>
+<td align="right">10.44%</td>
+<td align="right">0.06%</td>
+<td align="right">0.39%</td>
+</tr>
+<tr class="even">
+<td align="left">Los Angeles</td>
+<td align="left">2</td>
+<td align="right">1,858</td>
+<td align="right">15.9%</td>
+<td align="right">35.31%</td>
+<td align="right">11.57%</td>
+<td align="right">57.9%</td>
+</tr>
+<tr class="odd">
+<td align="left">Los Angeles</td>
+<td align="left">3</td>
+<td align="right">597</td>
+<td align="right">7.66%</td>
+<td align="right">17.02%</td>
+<td align="right">3.72%</td>
+<td align="right">18.6%</td>
+</tr>
+<tr class="even">
+<td align="left">Los Angeles</td>
+<td align="left">4</td>
+<td align="right">298</td>
+<td align="right">5.1%</td>
+<td align="right">11.33%</td>
+<td align="right">1.86%</td>
+<td align="right">9.29%</td>
+</tr>
+<tr class="odd">
+<td align="left">Los Angeles</td>
+<td align="left">5</td>
+<td align="right">138</td>
+<td align="right">2.95%</td>
+<td align="right">6.56%</td>
+<td align="right">0.86%</td>
+<td align="right">4.3%</td>
+</tr>
+<tr class="even">
+<td align="left">Los Angeles</td>
+<td align="left">6</td>
+<td align="right">81</td>
+<td align="right">2.08%</td>
+<td align="right">4.62%</td>
+<td align="right">0.5%</td>
+<td align="right">2.52%</td>
+</tr>
+<tr class="odd">
+<td align="left">Los Angeles</td>
+<td align="left">7</td>
+<td align="right">61</td>
+<td align="right">1.83%</td>
+<td align="right">4.06%</td>
+<td align="right">0.38%</td>
+<td align="right">1.9%</td>
+</tr>
+<tr class="even">
+<td align="left">Los Angeles</td>
+<td align="left">8</td>
+<td align="right">54</td>
+<td align="right">1.85%</td>
+<td align="right">4.11%</td>
+<td align="right">0.34%</td>
+<td align="right">1.68%</td>
+</tr>
+<tr class="odd">
+<td align="left">Los Angeles</td>
+<td align="left">9</td>
+<td align="right">19</td>
+<td align="right">0.73%</td>
+<td align="right">1.63%</td>
+<td align="right">0.12%</td>
+<td align="right">0.59%</td>
+</tr>
+<tr class="even">
+<td align="left">Los Angeles</td>
+<td align="left">10 - 14</td>
+<td align="right">57</td>
+<td align="right">2.82%</td>
+<td align="right">6.25%</td>
+<td align="right">0.35%</td>
+<td align="right">1.78%</td>
+</tr>
+<tr class="odd">
+<td align="left">Los Angeles</td>
+<td align="left">15 - 19</td>
+<td align="right">24</td>
+<td align="right">1.72%</td>
+<td align="right">3.83%</td>
+<td align="right">0.15%</td>
+<td align="right">0.75%</td>
+</tr>
+<tr class="even">
+<td align="left">Los Angeles</td>
+<td align="left">20 - 24</td>
+<td align="right">10</td>
+<td align="right">0.92%</td>
+<td align="right">2.05%</td>
+<td align="right">0.06%</td>
+<td align="right">0.31%</td>
+</tr>
+<tr class="odd">
+<td align="left">Los Angeles</td>
+<td align="left">25 - 29</td>
+<td align="right">8</td>
+<td align="right">0.89%</td>
+<td align="right">1.97%</td>
+<td align="right">0.05%</td>
+<td align="right">0.25%</td>
+</tr>
+<tr class="even">
+<td align="left">Los Angeles</td>
+<td align="left">30 - 34</td>
+<td align="right">3</td>
+<td align="right">0.39%</td>
+<td align="right">0.87%</td>
+<td align="right">0.02%</td>
+<td align="right">0.09%</td>
+</tr>
+<tr class="odd">
+<td align="left">Los Angeles</td>
+<td align="left">40 - 44</td>
+<td align="right">1</td>
+<td align="right">0.18%</td>
+<td align="right">0.4%</td>
+<td align="right">0.01%</td>
+<td align="right">0.03%</td>
+</tr>
+<tr class="even">
+<td align="left">New York City</td>
+<td align="left">2</td>
+<td align="right">2,769</td>
+<td align="right">13.65%</td>
+<td align="right">53.31%</td>
+<td align="right">8.11%</td>
+<td align="right">69.96%</td>
+</tr>
+<tr class="odd">
+<td align="left">New York City</td>
+<td align="left">3</td>
+<td align="right">684</td>
+<td align="right">5.06%</td>
+<td align="right">19.75%</td>
+<td align="right">2%</td>
+<td align="right">17.28%</td>
+</tr>
+<tr class="even">
+<td align="left">New York City</td>
+<td align="left">4</td>
+<td align="right">238</td>
+<td align="right">2.35%</td>
+<td align="right">9.16%</td>
+<td align="right">0.7%</td>
+<td align="right">6.01%</td>
+</tr>
+<tr class="odd">
+<td align="left">New York City</td>
+<td align="left">5</td>
+<td align="right">106</td>
+<td align="right">1.31%</td>
+<td align="right">5.1%</td>
+<td align="right">0.31%</td>
+<td align="right">2.68%</td>
+</tr>
+<tr class="even">
+<td align="left">New York City</td>
+<td align="left">6</td>
+<td align="right">66</td>
+<td align="right">0.98%</td>
+<td align="right">3.81%</td>
+<td align="right">0.19%</td>
+<td align="right">1.67%</td>
+</tr>
+<tr class="odd">
+<td align="left">New York City</td>
+<td align="left">7</td>
+<td align="right">36</td>
+<td align="right">0.62%</td>
+<td align="right">2.43%</td>
+<td align="right">0.11%</td>
+<td align="right">0.91%</td>
+</tr>
+<tr class="even">
+<td align="left">New York City</td>
+<td align="left">8</td>
+<td align="right">19</td>
+<td align="right">0.37%</td>
+<td align="right">1.46%</td>
+<td align="right">0.06%</td>
+<td align="right">0.48%</td>
+</tr>
+<tr class="odd">
+<td align="left">New York City</td>
+<td align="left">9</td>
+<td align="right">9</td>
+<td align="right">0.2%</td>
+<td align="right">0.78%</td>
+<td align="right">0.03%</td>
+<td align="right">0.23%</td>
+</tr>
+<tr class="even">
+<td align="left">New York City</td>
+<td align="left">10 - 14</td>
+<td align="right">23</td>
+<td align="right">0.62%</td>
+<td align="right">2.43%</td>
+<td align="right">0.07%</td>
+<td align="right">0.58%</td>
+</tr>
+<tr class="odd">
+<td align="left">New York City</td>
+<td align="left">15 - 19</td>
+<td align="right">4</td>
+<td align="right">0.17%</td>
+<td align="right">0.65%</td>
+<td align="right">0.01%</td>
+<td align="right">0.1%</td>
+</tr>
+<tr class="even">
+<td align="left">New York City</td>
+<td align="left">20 - 24</td>
+<td align="right">1</td>
+<td align="right">0.05%</td>
+<td align="right">0.19%</td>
+<td align="right">0%</td>
+<td align="right">0.03%</td>
+</tr>
+<tr class="odd">
+<td align="left">New York City</td>
+<td align="left">25 - 29</td>
+<td align="right">1</td>
+<td align="right">0.07%</td>
+<td align="right">0.27%</td>
+<td align="right">0%</td>
+<td align="right">0.03%</td>
+</tr>
+<tr class="even">
+<td align="left">New York City</td>
+<td align="left">30 - 34</td>
+<td align="right">1</td>
+<td align="right">0.08%</td>
+<td align="right">0.32%</td>
+<td align="right">0%</td>
+<td align="right">0.03%</td>
+</tr>
+<tr class="odd">
+<td align="left">New York City</td>
+<td align="left">35 - 39</td>
+<td align="right">1</td>
+<td align="right">0.09%</td>
+<td align="right">0.34%</td>
+<td align="right">0%</td>
+<td align="right">0.03%</td>
+</tr>
+<tr class="even">
+<td align="left">Paris</td>
+<td align="left">2</td>
+<td align="right">2,492</td>
+<td align="right">9.45%</td>
+<td align="right">44.65%</td>
+<td align="right">5.55%</td>
+<td align="right">75.24%</td>
+</tr>
+<tr class="odd">
+<td align="left">Paris</td>
+<td align="left">3</td>
+<td align="right">404</td>
+<td align="right">2.3%</td>
+<td align="right">10.86%</td>
+<td align="right">0.9%</td>
+<td align="right">12.2%</td>
+</tr>
+<tr class="even">
+<td align="left">Paris</td>
+<td align="left">4</td>
+<td align="right">125</td>
+<td align="right">0.95%</td>
+<td align="right">4.48%</td>
+<td align="right">0.28%</td>
+<td align="right">3.77%</td>
+</tr>
+<tr class="odd">
+<td align="left">Paris</td>
+<td align="left">5</td>
+<td align="right">61</td>
+<td align="right">0.58%</td>
+<td align="right">2.73%</td>
+<td align="right">0.14%</td>
+<td align="right">1.84%</td>
+</tr>
+<tr class="even">
+<td align="left">Paris</td>
+<td align="left">6</td>
+<td align="right">35</td>
+<td align="right">0.4%</td>
+<td align="right">1.88%</td>
+<td align="right">0.08%</td>
+<td align="right">1.06%</td>
+</tr>
+<tr class="odd">
+<td align="left">Paris</td>
+<td align="left">7</td>
+<td align="right">23</td>
+<td align="right">0.31%</td>
+<td align="right">1.44%</td>
+<td align="right">0.05%</td>
+<td align="right">0.69%</td>
+</tr>
+<tr class="even">
+<td align="left">Paris</td>
+<td align="left">8</td>
+<td align="right">22</td>
+<td align="right">0.33%</td>
+<td align="right">1.58%</td>
+<td align="right">0.05%</td>
+<td align="right">0.66%</td>
+</tr>
+<tr class="odd">
+<td align="left">Paris</td>
+<td align="left">9</td>
+<td align="right">15</td>
+<td align="right">0.26%</td>
+<td align="right">1.21%</td>
+<td align="right">0.03%</td>
+<td align="right">0.45%</td>
+</tr>
+<tr class="even">
+<td align="left">Paris</td>
+<td align="left">10 - 14</td>
+<td align="right">45</td>
+<td align="right">1.03%</td>
+<td align="right">4.85%</td>
+<td align="right">0.1%</td>
+<td align="right">1.36%</td>
+</tr>
+<tr class="odd">
+<td align="left">Paris</td>
+<td align="left">15 - 19</td>
+<td align="right">24</td>
+<td align="right">0.74%</td>
+<td align="right">3.48%</td>
+<td align="right">0.05%</td>
+<td align="right">0.72%</td>
+</tr>
+<tr class="even">
+<td align="left">Paris</td>
+<td align="left">20 - 24</td>
+<td align="right">23</td>
+<td align="right">0.95%</td>
+<td align="right">4.49%</td>
+<td align="right">0.05%</td>
+<td align="right">0.69%</td>
+</tr>
+<tr class="odd">
+<td align="left">Paris</td>
+<td align="left">25 - 29</td>
+<td align="right">8</td>
+<td align="right">0.41%</td>
+<td align="right">1.93%</td>
+<td align="right">0.02%</td>
+<td align="right">0.24%</td>
+</tr>
+<tr class="even">
+<td align="left">Paris</td>
+<td align="left">30 - 34</td>
+<td align="right">5</td>
+<td align="right">0.31%</td>
+<td align="right">1.44%</td>
+<td align="right">0.01%</td>
+<td align="right">0.15%</td>
+</tr>
+<tr class="odd">
+<td align="left">Paris</td>
+<td align="left">35 - 39</td>
+<td align="right">11</td>
+<td align="right">0.77%</td>
+<td align="right">3.62%</td>
+<td align="right">0.02%</td>
+<td align="right">0.33%</td>
+</tr>
+<tr class="even">
+<td align="left">Paris</td>
+<td align="left">40 - 44</td>
+<td align="right">3</td>
+<td align="right">0.24%</td>
+<td align="right">1.13%</td>
+<td align="right">0.01%</td>
+<td align="right">0.09%</td>
+</tr>
+<tr class="odd">
+<td align="left">Paris</td>
+<td align="left">45 - 49</td>
+<td align="right">1</td>
+<td align="right">0.09%</td>
+<td align="right">0.43%</td>
+<td align="right">0%</td>
+<td align="right">0.03%</td>
+</tr>
+<tr class="even">
+<td align="left">Paris</td>
+<td align="left">50+</td>
+<td align="right">15</td>
+<td align="right">2.08%</td>
+<td align="right">9.81%</td>
+<td align="right">0.03%</td>
+<td align="right">0.45%</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="prop-type" class="section level3">
+<h3>Property Types</h3>
+<p>(<a href="#toc">Back to Table of Contents</a>)</p>
+<p>Let’s look at some of the data describing listing characteristics. In addition to the room type of the listing (‘Entire home/apt’, ‘Private room’, or ‘Shared room’), our data also lists the property type of the listing. Let’s look at a simple table comparing the room and property types for the latest scrape for New York City.</p>
+<pre class="r"><code>load(&#39;data/scrape.RData&#39;)
+scrape &lt;- scrape %&gt;% group_by(Country, State, City) %&gt;% mutate(MaxDate = max(DataScrapeDate)) %&gt;%
+          ungroup() %&gt;% filter(City == &#39;New York City&#39; &amp; DataScrapeDate == MaxDate) %&gt;%
+          group_by(Country, State, City, DataScrapeDate, PropertyType) %&gt;%
+          mutate(TotalListings = sum(ListingsCount)) %&gt;% ungroup() %&gt;% spread(RoomType, ListingsCount) %&gt;%
+          select(PropertyType, `Entire home/apt`, `Private room`, `Shared room`,
+                 &#39;Total Listings Count&#39; = TotalListings) %&gt;% arrange(desc(`Total Listings Count`))
+kable(scrape, format.args = list(big.mark = &#39;,&#39;))</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left">PropertyType</th>
+<th align="right">Entire home/apt</th>
+<th align="right">Private room</th>
+<th align="right">Shared room</th>
+<th align="right">Total Listings Count</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Apartment</td>
+<td align="right">17,652</td>
+<td align="right">16,291</td>
+<td align="right">990</td>
+<td align="right">34,933</td>
+</tr>
+<tr class="even">
+<td align="left">House</td>
+<td align="right">1,110</td>
+<td align="right">2,100</td>
+<td align="right">94</td>
+<td align="right">3,304</td>
+</tr>
+<tr class="odd">
+<td align="left">Loft</td>
+<td align="right">453</td>
+<td align="right">403</td>
+<td align="right">29</td>
+<td align="right">885</td>
+</tr>
+<tr class="even">
+<td align="left">Townhouse</td>
+<td align="right">242</td>
+<td align="right">276</td>
+<td align="right">7</td>
+<td align="right">525</td>
+</tr>
+<tr class="odd">
+<td align="left">Condominium</td>
+<td align="right">214</td>
+<td align="right">124</td>
+<td align="right">6</td>
+<td align="right">344</td>
+</tr>
+<tr class="even">
+<td align="left">Other</td>
+<td align="right">101</td>
+<td align="right">104</td>
+<td align="right">10</td>
+<td align="right">215</td>
+</tr>
+<tr class="odd">
+<td align="left">Bed &amp; Breakfast</td>
+<td align="right">26</td>
+<td align="right">127</td>
+<td align="right">31</td>
+<td align="right">184</td>
+</tr>
+<tr class="even">
+<td align="left">Guesthouse</td>
+<td align="right">11</td>
+<td align="right">17</td>
+<td align="right">17</td>
+<td align="right">45</td>
+</tr>
+<tr class="odd">
+<td align="left">Timeshare</td>
+<td align="right">28</td>
+<td align="right">7</td>
+<td align="right">2</td>
+<td align="right">37</td>
+</tr>
+<tr class="even">
+<td align="left">Hostel</td>
+<td align="right">1</td>
+<td align="right">12</td>
+<td align="right">12</td>
+<td align="right">25</td>
+</tr>
+<tr class="odd">
+<td align="left">Boutique hotel</td>
+<td align="right">9</td>
+<td align="right">10</td>
+<td align="right">NA</td>
+<td align="right">19</td>
+</tr>
+<tr class="even">
+<td align="left">Dorm</td>
+<td align="right">1</td>
+<td align="right">13</td>
+<td align="right">5</td>
+<td align="right">19</td>
+</tr>
+<tr class="odd">
+<td align="left">Villa</td>
+<td align="right">6</td>
+<td align="right">7</td>
+<td align="right">NA</td>
+<td align="right">13</td>
+</tr>
+<tr class="even">
+<td align="left">Bungalow</td>
+<td align="right">10</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">12</td>
+</tr>
+<tr class="odd">
+<td align="left">Serviced apartment</td>
+<td align="right">6</td>
+<td align="right">4</td>
+<td align="right">NA</td>
+<td align="right">10</td>
+</tr>
+<tr class="even">
+<td align="left">Boat</td>
+<td align="right">5</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">5</td>
+</tr>
+<tr class="odd">
+<td align="left">Cabin</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">3</td>
+</tr>
+<tr class="even">
+<td align="left">Castle</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">NA</td>
+<td align="right">2</td>
+</tr>
+<tr class="odd">
+<td align="left">Cave</td>
+<td align="right">1</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">Chalet</td>
+<td align="right">NA</td>
+<td align="right">1</td>
+<td align="right">NA</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
+<td align="left">Earth House</td>
+<td align="right">NA</td>
+<td align="right">1</td>
+<td align="right">NA</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">Hut</td>
+<td align="right">NA</td>
+<td align="right">1</td>
+<td align="right">NA</td>
+<td align="right">1</td>
+</tr>
+<tr class="odd">
+<td align="left">Island</td>
+<td align="right">1</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">Tent</td>
+<td align="right">NA</td>
+<td align="right">1</td>
+<td align="right">NA</td>
+<td align="right">1</td>
+</tr>
+</tbody>
+</table>
 <pre class="r"><code># Disconnect from MySQL database
 dbDisconnect(abnb_db)</code></pre>
 </div>
@@ -2142,7 +2958,7 @@ $(document).ready(function () {
   (function () {
     var script = document.createElement("script");
     script.type = "text/javascript";
-    script.src  = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
     document.getElementsByTagName("head")[0].appendChild(script);
   })();
 </script>
